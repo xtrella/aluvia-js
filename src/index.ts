@@ -20,7 +20,7 @@ export interface ProxyCredential {
   /** Whether smart routing is enabled for this proxy */
   smartRoutingEnabled?: boolean;
   /** The session salt used for sticky sessions */
-  session_salt?: string;
+  sessionSalt?: string;
 }
 
 /**
@@ -85,7 +85,7 @@ export class Proxy {
    * const proxy = await sdk.first();
    * const usage = await proxy.usage();
    * console.log(`This proxy has used ${usage.data_used} GB`);
-   * 
+   *
    * // Get usage for last week
    * const lastWeek = await proxy.usage({
    *   usage_start: Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60),
@@ -93,26 +93,18 @@ export class Proxy {
    * });
    * ```
    */
-  async usage(options?: {
-    usage_start?: number;
-    usage_end?: number;
-  }): Promise<{
+  async usage(options?: { usage_start?: number; usage_end?: number }): Promise<{
     username: string;
     usage_start: number;
     usage_end: number;
     data_used: number;
-    created_at: number;
-    updated_at: number;
-    options: {
-      use_sticky?: boolean;
-    };
   }> {
     return this.sdk.usage(this.credential.username, options);
   }
 
   /**
    * Updates the proxy configuration on the server.
-   * 
+   *
    * This method syncs the current proxy state (sticky sessions, smart routing)
    * with the Aluvia API server.
    *
@@ -129,6 +121,7 @@ export class Proxy {
   async update(): Promise<boolean> {
     return this.sdk.update(this.credential.username, {
       stickyEnabled: this.credential.stickyEnabled,
+      smartRoutingEnabled: this.credential.smartRoutingEnabled,
     });
   }
 
@@ -148,10 +141,9 @@ export class Proxy {
    */
   async enableSticky(): Promise<this> {
     this.credential.stickyEnabled = true;
-    this.credential.session_salt = this.generateSessionSalt();
-    
+    this.credential.sessionSalt = this.generateSessionSalt();
+
     await this.update();
-    
     return this;
   }
 
@@ -171,9 +163,8 @@ export class Proxy {
    */
   async enableSmartRouting(): Promise<this> {
     this.credential.smartRoutingEnabled = true;
-    
+
     await this.update();
-    
     return this;
   }
 
@@ -184,10 +175,9 @@ export class Proxy {
    */
   async disableSticky(): Promise<this> {
     this.credential.stickyEnabled = false;
-    this.credential.session_salt = undefined;
-    
+    this.credential.sessionSalt = undefined;
+
     await this.update();
-    
     return this;
   }
 
@@ -198,9 +188,8 @@ export class Proxy {
    */
   async disableSmartRouting(): Promise<this> {
     this.credential.smartRoutingEnabled = false;
-    
+
     await this.update();
-    
     return this;
   }
 
@@ -277,8 +266,8 @@ export class Proxy {
     let username = this.stripUsernameSuffixes(this.credential.username);
 
     // Add sticky session suffix
-    if (this.credential.stickyEnabled && this.credential.session_salt) {
-      username += `-session-${this.credential.session_salt}`;
+    if (this.credential.stickyEnabled && this.credential.sessionSalt) {
+      username += `-session-${this.credential.sessionSalt}`;
     }
 
     // Add smart routing suffix
@@ -375,6 +364,19 @@ export class Aluvia {
       .replace(/-routing-smart/, "");
   }
 
+  private parseOptions(options?: Record<string, any>) {
+    return {
+      stickyEnabled:
+        options && "use_sticky" in options
+          ? options.use_sticky || false
+          : false,
+      smartRoutingEnabled:
+        options && "use_smart_routing" in options
+          ? options.use_smart_routing || false
+          : false,
+    };
+  }
+
   /**
    * Retrieves the most recently created proxy from your account.
    *
@@ -397,42 +399,30 @@ export class Aluvia {
    * ```
    */
   async first(): Promise<Proxy | null> {
-    try {
-      const headers = { Authorization: `Bearer ${this.token}` };
-      const response = await api.get<{
-        success: boolean;
-        data: Array<{
-          username: string;
-          password: string;
-          total_data_used: number;
-          created_at: number;
-          updated_at: number;
-          options: {
-            use_sticky?: boolean;
-          } | {};
-        }>;
-      }>("/credentials", headers);
+    const headers = { Authorization: `Bearer ${this.token}` };
+    const response = await api.get<{
+      success: boolean;
+      data: Array<{
+        username: string;
+        password: string;
+        options: Record<string, any>;
+      }>;
+    }>("/credentials", headers);
 
-      if (response.success && response.data.length > 0) {
-        // Find the proxy with the latest created_at timestamp
-        const latestProxy = response.data.reduce((latest, current) => 
-          current.created_at > latest.created_at ? current : latest
-        );
-
-        const options = latestProxy.options || {};
-        const credential: ProxyCredential = {
-          username: latestProxy.username,
-          password: latestProxy.password,
-          stickyEnabled: 'use_sticky' in options ? (options as any).use_sticky || false : false
-        };
-
-        this.credentials = [credential];
-        return new Proxy(credential, this.config, this);
-      }
-
+    if (!response.success) {
       throw new ApiError("Failed to load credentials");
-    } catch (error) {
-      throw error; // Re-throw errors (they're already properly typed)
+    }
+
+    this.credentials = response.data?.map((cred) => ({
+      username: cred.username,
+      password: cred.password,
+      ...this.parseOptions(cred.options),
+    }));
+
+    if (this.credentials.at(0)) {
+      return new Proxy(this.credentials[0], this.config, this);
+    } else {
+      return null;
     }
   }
 
@@ -458,30 +448,42 @@ export class Aluvia {
   async find(username: string): Promise<Proxy | null> {
     try {
       const baseUsername = this.stripUsernameSuffixes(username);
+      const match = this.credentials.find(
+        (cred) => this.stripUsernameSuffixes(cred.username) === baseUsername
+      );
+
+      if (match) {
+        return new Proxy(match, this.config, this);
+      }
 
       const headers = { Authorization: `Bearer ${this.token}` };
       const response = await api.get<{
         success: boolean;
-        data: { username: string; password: string };
+        data: {
+          username: string;
+          password: string;
+          options: Record<string, any>;
+        };
       }>("/credentials/" + baseUsername, headers);
 
-      if (response.success) {
-        const apiCredential: ProxyCredential = {
-          username: response.data.username,
-          password: response.data.password,
-          stickyEnabled: false,
-          smartRoutingEnabled: false,
-        };
-
-        return new Proxy(apiCredential, this.config, this);
+      if (!response.success) {
+        return null;
       }
 
-      return null;
+      return new Proxy(
+        {
+          username: response.data.username,
+          password: response.data.password,
+          ...this.parseOptions(response.data.options),
+        },
+        this.config,
+        this
+      );
     } catch (error) {
       if (error instanceof ApiError && error.statusCode === 404) {
         return null; // Proxy not found is not an error condition
       }
-      throw error; // Re-throw other errors
+      throw error;
     }
   }
 
@@ -510,27 +512,26 @@ export class Aluvia {
     const headers = { Authorization: `Bearer ${this.token}` };
     const response = await api.post<{
       success: boolean;
-      data: { username: string; password: string }[];
       message?: string;
+      data: {
+        username: string;
+        password: string;
+        options: Record<string, any>;
+      }[];
     }>("/credentials", { count: validCount }, headers);
 
-    if (response.success) {
-      const newCredentials = response.data.map((cred: any) => ({
-        username: cred.username,
-        password: cred.password,
-        stickyEnabled: false,
-        smartRoutingEnabled: false,
-      }));
-
-      // Add to in-memory credentials
-      this.credentials.push(...newCredentials);
-
-      return newCredentials.map(
-        (cred: any) => new Proxy(cred, this.config, this)
-      );
+    if (!response.success) {
+      throw new ApiError(response.message || "Failed to create proxies");
     }
 
-    throw new ApiError(response.message || "Failed to create proxies");
+    const newCredentials = response.data.map((cred) => ({
+      username: cred.username,
+      password: cred.password,
+      ...this.parseOptions(cred.options),
+    }));
+
+    this.credentials.push(...newCredentials);
+    return newCredentials.map((cred) => new Proxy(cred, this.config, this));
   }
 
   /**
@@ -547,50 +548,60 @@ export class Aluvia {
    * @example
    * ```typescript
    * const sdk = new Aluvia('your-token');
-   * 
+   *
    * // Update specific proxy settings
    * await sdk.update('user123', {
    *   stickyEnabled: true,
    *   smartRoutingEnabled: true,
-   *   session_salt: 'abc12345'
+   *   sessionSalt: 'abc12345'
    * });
    * ```
    */
   async update(
-    username: string, 
+    username: string,
     options: {
       stickyEnabled?: boolean;
+      smartRoutingEnabled?: boolean;
     }
   ): Promise<boolean> {
     const baseUsername = this.stripUsernameSuffixes(username);
     const headers = { Authorization: `Bearer ${this.token}` };
-    
+
     const updateData = {
       options: {
         use_sticky: options.stickyEnabled,
-      }
+        use_smart_routing: options.smartRoutingEnabled,
+      },
     };
 
-    const response = await api.patch<{ success: boolean; message?: string }>(
-      `/credentials/${baseUsername}`,
-      updateData,
-      headers
-    );
+    const response = await api.patch<{
+      success: boolean;
+      message?: string;
+      data: {
+        username: string;
+        password: string;
+        options: Record<string, any>;
+      };
+    }>(`/credentials/${baseUsername}`, updateData, headers);
 
-    if (response.success) {
-      // Update local cache if the proxy exists
-      const existingCred = this.credentials.find(cred => 
-        this.stripUsernameSuffixes(cred.username) === baseUsername
-      );
-      
-      if (existingCred) {
-        existingCred.stickyEnabled = options.stickyEnabled ?? existingCred.stickyEnabled;
-      }
-      
-      return true;
+    if (!response.success) {
+      throw new ApiError(response.message || "Failed to update proxy");
     }
 
-    throw new ApiError(response.message || "Failed to update proxy");
+    this.credentials = this.credentials.map((cred) => {
+      const credBaseUsername = this.stripUsernameSuffixes(cred.username);
+      if (credBaseUsername === baseUsername) {
+        return {
+          ...cred,
+          stickyEnabled: options.stickyEnabled ?? cred.stickyEnabled,
+          smartRoutingEnabled:
+            options.smartRoutingEnabled ?? cred.smartRoutingEnabled,
+        };
+      }
+      return cred;
+    });
+
+    return true;
   }
 
   /**
@@ -623,16 +634,15 @@ export class Aluvia {
       headers
     );
 
-    if (response.success) {
-      // Remove from in-memory credentials
-      this.credentials = this.credentials.filter((cred) => {
-        const credBaseUsername = this.stripUsernameSuffixes(cred.username);
-        return credBaseUsername !== baseUsername;
-      });
-      return true;
+    if (!response.success) {
+      throw new ApiError(response.message || "Failed to delete proxy");
     }
 
-    throw new ApiError(response.message || "Failed to delete proxy");
+    this.credentials = this.credentials.filter((cred) => {
+      const credBaseUsername = this.stripUsernameSuffixes(cred.username);
+      return credBaseUsername !== baseUsername;
+    });
+    return true;
   }
 
   /**
@@ -671,11 +681,11 @@ export class Aluvia {
    * @example
    * ```typescript
    * const sdk = new Aluvia('your-token');
-   * 
+   *
    * // Get usage for current period
    * const usage = await sdk.usage('user123');
    * console.log(`Data used: ${usage.data_used} GB`);
-   * 
+   *
    * // Get usage for specific date range
    * const customUsage = await sdk.usage('user123', {
    *   usage_start: 1705478400,
@@ -696,24 +706,23 @@ export class Aluvia {
     data_used: number;
     created_at: number;
     updated_at: number;
-    options: {
-      use_sticky?: boolean;
-    };
+    options: Record<string, any>;
   }> {
     const validUsername = validateUsername(username);
     const baseUsername = this.stripUsernameSuffixes(validUsername);
     const headers = { Authorization: `Bearer ${this.token}` };
 
-    // Build query parameters
     const queryParams = new URLSearchParams();
     if (options?.usage_start) {
-      queryParams.append('usage_start', options.usage_start.toString());
+      queryParams.append("usage_start", options.usage_start.toString());
     }
     if (options?.usage_end) {
-      queryParams.append('usage_end', options.usage_end.toString());
+      queryParams.append("usage_end", options.usage_end.toString());
     }
 
-    const endpoint = `/credentials/${baseUsername}${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    const endpoint = `/credentials/${baseUsername}${
+      queryParams.toString() ? "?" + queryParams.toString() : ""
+    }`;
 
     const response = await api.get<{
       success: boolean;
@@ -724,9 +733,7 @@ export class Aluvia {
         data_used: number;
         created_at: number;
         updated_at: number;
-        options: {
-          use_sticky?: boolean;
-        };
+        options: Record<string, any>;
       };
       message?: string;
     }>(endpoint, headers);
