@@ -203,12 +203,7 @@ export class Proxy {
    * Build credential with proper username formatting
    */
   private buildCredential(): ProxyCredential {
-    let username = this.credential.username;
-
-    // Remove existing suffixes to avoid duplication
-    username = username
-      .replace(/-session-[a-zA-Z0-9]+/, "")
-      .replace(/-routing-smart/, "");
+    let username = this.stripUsernameSuffixes(this.credential.username);
 
     // Add sticky session suffix
     if (this.credential.sticky_enabled && this.credential.session_salt) {
@@ -224,6 +219,15 @@ export class Proxy {
       ...this.credential,
       username,
     };
+  }
+
+  /**
+   * Strip session and routing suffixes from username
+   */
+  private stripUsernameSuffixes(username: string): string {
+    return username
+      .replace(/-session-[a-zA-Z0-9]+/, "")
+      .replace(/-routing-smart/, "");
   }
 
   /**
@@ -289,6 +293,15 @@ export class Aluvia {
    */
   constructor(token: string) {
     this.token = validateApiToken(token);
+  }
+
+  /**
+   * Strip session and routing suffixes from username
+   */
+  private stripUsernameSuffixes(username: string): string {
+    return username
+      .replace(/-session-[a-zA-Z0-9]+/, "")
+      .replace(/-routing-smart/, "");
   }
 
   /**
@@ -359,9 +372,7 @@ export class Aluvia {
    */
   async find(username: string): Promise<Proxy | null> {
     try {
-      const baseUsername = username
-        .replace(/-session-[a-zA-Z0-9]+/, "")
-        .replace(/-routing-smart/, "");
+      const baseUsername = this.stripUsernameSuffixes(username);
 
       const headers = { Authorization: `Bearer ${this.token}` };
       const response = await api.get<{
@@ -459,9 +470,7 @@ export class Aluvia {
    */
   async delete(username: string): Promise<boolean> {
     const validUsername = validateUsername(username);
-    const baseUsername = validUsername
-      .replace(/-session-[a-zA-Z0-9]+/, "")
-      .replace(/-routing-smart/, "");
+    const baseUsername = this.stripUsernameSuffixes(validUsername);
 
     const headers = { Authorization: `Bearer ${this.token}` };
     const response = await api.delete<{ success: boolean; message?: string }>(
@@ -472,9 +481,7 @@ export class Aluvia {
     if (response.success) {
       // Remove from in-memory credentials
       this.credentials = this.credentials.filter((cred) => {
-        const credBaseUsername = cred.username
-          .replace(/-session-[a-zA-Z0-9]+/, "")
-          .replace(/-routing-smart/, "");
+        const credBaseUsername = this.stripUsernameSuffixes(cred.username);
         return credBaseUsername !== baseUsername;
       });
       return true;
