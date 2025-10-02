@@ -62,10 +62,18 @@ describe("Aluvia SDK", () => {
   describe("first", () => {
     const mockCredentialResponse = {
       success: true,
-      data: {
-        username: "user123",
-        password: "pass456",
-      },
+      data: [
+        {
+          username: "user123",
+          password: "pass456",
+          total_data_used: 1.5,
+          created_at: 1705478400,
+          updated_at: 1705564800,
+          options: {
+            use_sticky: false,
+          },
+        }
+      ],
     };
 
     it("should return first proxy when available", async () => {
@@ -76,9 +84,32 @@ describe("Aluvia SDK", () => {
       expect(proxy).toBeInstanceOf(Proxy);
       expect(proxy?.info.username).toBe("user123");
       expect(proxy?.info.password).toBe("pass456");
-      expect(mockApi.get).toHaveBeenCalledWith("/credentials/latest", {
+      expect(mockApi.get).toHaveBeenCalledWith("/credentials", {
         Authorization: `Bearer ${validToken}`,
       });
+    });
+
+    it("should handle proxy with empty options", async () => {
+      const mockResponseWithEmptyOptions = {
+        success: true,
+        data: [
+          {
+            username: "user123",
+            password: "pass456",
+            total_data_used: 1.5,
+            created_at: 1705478400,
+            updated_at: 1705564800,
+            options: {},
+          }
+        ],
+      };
+
+      mockApi.get.mockResolvedValue(mockResponseWithEmptyOptions);
+
+      const proxy = await sdk.first();
+
+      expect(proxy).toBeInstanceOf(Proxy);
+      expect(proxy?.info.stickyEnabled).toBe(false); // Should default to false
     });
 
     it("should throw error when API returns failure", async () => {
@@ -264,15 +295,11 @@ describe("Aluvia SDK", () => {
 
       const result = await sdk.update("user1", {
         stickyEnabled: true,
-        smartRoutingEnabled: true,
-        session_salt: "abc12345",
       });
 
       expect(result).toBe(true);
       expect(mockApi.patch).toHaveBeenCalledWith("/credentials/user1", {
-        stickyEnabled: true,
-        smartRoutingEnabled: true,
-        session_salt: "abc12345",
+        options: { use_sticky: true },
       }, {
         Authorization: `Bearer ${validToken}`,
       });
@@ -287,7 +314,7 @@ describe("Aluvia SDK", () => {
 
       expect(result).toBe(true);
       expect(mockApi.patch).toHaveBeenCalledWith("/credentials/user1", {
-        stickyEnabled: false,
+        options: { use_sticky: false },
       }, {
         Authorization: `Bearer ${validToken}`,
       });
@@ -298,15 +325,13 @@ describe("Aluvia SDK", () => {
 
       await sdk.update("user1", {
         stickyEnabled: true,
-        smartRoutingEnabled: true,
-        session_salt: "test123",
       });
 
       const allProxies = sdk.all();
       const updatedProxy = allProxies.find(p => p.info.username.includes("user1"));
       
       expect(updatedProxy?.info.stickyEnabled).toBe(true);
-      expect(updatedProxy?.info.smartRoutingEnabled).toBe(true);
+      expect(updatedProxy?.info.smartRoutingEnabled).toBe(false);
     });
 
     it("should handle partial updates", async () => {
@@ -314,14 +339,11 @@ describe("Aluvia SDK", () => {
 
       const result = await sdk.update("user1", {
         stickyEnabled: true,
-        // smartRoutingEnabled not specified
       });
 
       expect(result).toBe(true);
       expect(mockApi.patch).toHaveBeenCalledWith("/credentials/user1", {
-        stickyEnabled: true,
-        smartRoutingEnabled: undefined,
-        session_salt: undefined,
+        options: { use_sticky: true },
       }, {
         Authorization: `Bearer ${validToken}`,
       });
@@ -444,6 +466,112 @@ describe("Aluvia SDK", () => {
 
       expect(proxy.info.host).toBe("proxy.aluvia.io");
       expect(proxy.info.httpPort).toBe(8080);
+    });
+  });
+
+  describe("usage", () => {
+    const mockUsageResponse = {
+      success: true,
+      data: {
+        username: "user123",
+        usage_start: 1705478400,
+        usage_end: 1706083200,
+        data_used: 2.5,
+        created_at: 1705478400,
+        updated_at: 1705564800,
+        options: {
+          use_sticky: true
+        }
+      }
+    };
+
+    it("should get usage information for proxy without date range", async () => {
+      mockApi.get.mockResolvedValue(mockUsageResponse);
+
+      const usage = await sdk.usage("user123");
+
+      expect(usage.username).toBe("user123");
+      expect(usage.data_used).toBe(2.5);
+      expect(usage.options.use_sticky).toBe(true);
+      expect(mockApi.get).toHaveBeenCalledWith("/credentials/user123", {
+        Authorization: `Bearer ${validToken}`,
+      });
+    });
+
+    it("should get usage information with date range", async () => {
+      mockApi.get.mockResolvedValue(mockUsageResponse);
+
+      const usage = await sdk.usage("user123", {
+        usage_start: 1705478400,
+        usage_end: 1706083200
+      });
+
+      expect(usage.data_used).toBe(2.5);
+      expect(mockApi.get).toHaveBeenCalledWith(
+        "/credentials/user123?usage_start=1705478400&usage_end=1706083200", 
+        {
+          Authorization: `Bearer ${validToken}`,
+        }
+      );
+    });
+
+    it("should handle username with suffixes in usage call", async () => {
+      mockApi.get.mockResolvedValue(mockUsageResponse);
+
+      await sdk.usage("user123-session-abc-routing-smart", {
+        usage_start: 1705478400
+      });
+
+      expect(mockApi.get).toHaveBeenCalledWith(
+        "/credentials/user123?usage_start=1705478400", 
+        {
+          Authorization: `Bearer ${validToken}`,
+        }
+      );
+    });
+
+    it("should handle partial date range options", async () => {
+      mockApi.get.mockResolvedValue(mockUsageResponse);
+
+      // Only usage_start
+      await sdk.usage("user123", { usage_start: 1705478400 });
+      expect(mockApi.get).toHaveBeenCalledWith(
+        "/credentials/user123?usage_start=1705478400", 
+        {
+          Authorization: `Bearer ${validToken}`,
+        }
+      );
+
+      mockApi.get.mockClear();
+
+      // Only usage_end
+      await sdk.usage("user123", { usage_end: 1706083200 });
+      expect(mockApi.get).toHaveBeenCalledWith(
+        "/credentials/user123?usage_end=1706083200", 
+        {
+          Authorization: `Bearer ${validToken}`,
+        }
+      );
+    });
+
+    it("should throw error when usage request fails", async () => {
+      mockApi.get.mockResolvedValue({
+        success: false,
+        message: "Proxy not found"
+      });
+
+      await expect(sdk.usage("user123")).rejects.toThrow("Proxy not found");
+    });
+
+    it("should throw error when API request fails", async () => {
+      mockApi.get.mockRejectedValue(new Error("Network error"));
+
+      await expect(sdk.usage("user123")).rejects.toThrow("Network error");
+    });
+
+    it("should validate username parameter", async () => {
+      await expect(sdk.usage("")).rejects.toThrow("username cannot be empty");
+      await expect(sdk.usage("   ")).rejects.toThrow("username cannot be empty");
     });
   });
 });
