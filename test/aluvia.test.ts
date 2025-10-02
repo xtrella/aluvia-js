@@ -4,7 +4,7 @@
 
 import { describe, it, expect, jest, beforeEach } from "@jest/globals";
 import { Aluvia, Proxy } from "../src/index.js";
-import { api } from '../src/api-client.js';
+import { api } from "../src/api-client.js";
 
 // Mock the API client
 jest.mock("../src/api-client.js", () => ({
