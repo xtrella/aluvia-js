@@ -70,7 +70,7 @@ interface RawUsageData {
  * Simple API response with no data.
  * @internal
  */
-type SimpleApiResponse = Omit<ApiResponse, 'data'>;
+type SimpleApiResponse = Omit<ApiResponse, "data">;
 
 /**
  * Represents a single proxy instance with methods for configuration and connection management.
@@ -435,7 +435,10 @@ export class Aluvia {
    */
   async first(): Promise<Proxy | null> {
     const headers = { Authorization: `Bearer ${this.token}` };
-    const response = await api.get<ApiResponse<RawCredential[]>>("/credentials", headers);
+    const response = await api.get<ApiResponse<RawCredential[]>>(
+      "/credentials",
+      headers
+    );
 
     if (!response.success) {
       throw new ApiError("Failed to load credentials");
@@ -485,7 +488,10 @@ export class Aluvia {
       }
 
       const headers = { Authorization: `Bearer ${this.token}` };
-      const response = await api.get<ApiResponse<RawCredential>>("/credentials/" + baseUsername, headers);
+      const response = await api.get<ApiResponse<RawCredential>>(
+        "/credentials/" + baseUsername,
+        headers
+      );
 
       if (!response.success) {
         return null;
@@ -531,7 +537,11 @@ export class Aluvia {
     const validCount = validateProxyCount(count);
 
     const headers = { Authorization: `Bearer ${this.token}` };
-    const response = await api.post<ApiResponse<RawCredential[]>>("/credentials", { count: validCount }, headers);
+    const response = await api.post<ApiResponse<RawCredential[]>>(
+      "/credentials",
+      { count: validCount },
+      headers
+    );
 
     if (!response.success) {
       throw new ApiError(response.message || "Failed to create proxies");
@@ -587,7 +597,11 @@ export class Aluvia {
       },
     };
 
-    const response = await api.patch<ApiResponse<RawCredential>>(`/credentials/${baseUsername}`, updateData, headers);
+    const response = await api.patch<ApiResponse<RawCredential>>(
+      `/credentials/${baseUsername}`,
+      updateData,
+      headers
+    );
 
     if (!response.success) {
       throw new ApiError(response.message || "Failed to update proxy");
@@ -723,7 +737,10 @@ export class Aluvia {
       queryParams.toString() ? "?" + queryParams.toString() : ""
     }`;
 
-    const response = await api.get<ApiResponse<RawUsageData>>(endpoint, headers);
+    const response = await api.get<ApiResponse<RawUsageData>>(
+      endpoint,
+      headers
+    );
 
     if (response.success) {
       return {
