@@ -74,6 +74,30 @@ export class Proxy {
   }
 
   /**
+   * Updates the proxy configuration on the server.
+   * 
+   * This method syncs the current proxy state (sticky sessions, smart routing)
+   * with the Aluvia API server.
+   *
+   * @returns A promise that resolves to true if the update was successful
+   * @throws {Error} When the update fails or the proxy doesn't exist
+   *
+   * @example
+   * ```typescript
+   * const proxy = await sdk.first();
+   * proxy.enableSticky();
+   * await proxy.update(); // Sync with server
+   * ```
+   */
+  async update(): Promise<boolean> {
+    return this.sdk.update(this.credential.username, {
+      stickyEnabled: this.credential.stickyEnabled,
+      smartRoutingEnabled: this.credential.smartRoutingEnabled,
+      session_salt: this.credential.session_salt,
+    });
+  }
+
+  /**
    * Enables sticky sessions for this proxy connection.
    *
    * Sticky sessions ensure that subsequent requests from the same client
@@ -87,9 +111,12 @@ export class Proxy {
    * proxy.enableSticky().url(); // Returns URL with session token
    * ```
    */
-  enableSticky(): this {
+  async enableSticky(): Promise<this> {
     this.credential.stickyEnabled = true;
     this.credential.session_salt = this.generateSessionSalt();
+    
+    await this.update();
+    
     return this;
   }
 
@@ -104,11 +131,14 @@ export class Proxy {
    * @example
    * ```typescript
    * const proxy = await sdk.first();
-   * proxy.enableSmartRouting().url();
+   * await proxy.enableSmartRouting();
    * ```
    */
-  enableSmartRouting(): this {
+  async enableSmartRouting(): Promise<this> {
     this.credential.smartRoutingEnabled = true;
+    
+    await this.update();
+    
     return this;
   }
 
@@ -117,9 +147,12 @@ export class Proxy {
    *
    * @returns The current Proxy instance for method chaining
    */
-  disableSticky(): this {
+  async disableSticky(): Promise<this> {
     this.credential.stickyEnabled = false;
     this.credential.session_salt = undefined;
+    
+    await this.update();
+    
     return this;
   }
 
@@ -128,8 +161,11 @@ export class Proxy {
    *
    * @returns The current Proxy instance for method chaining
    */
-  disableSmartRouting(): this {
+  async disableSmartRouting(): Promise<this> {
     this.credential.smartRoutingEnabled = false;
+    
+    await this.update();
+    
     return this;
   }
 
@@ -446,6 +482,70 @@ export class Aluvia {
     }
 
     throw new ApiError(response.message || "Failed to create proxies");
+  }
+
+  /**
+   * Updates a specific proxy's configuration on the server.
+   *
+   * This method allows you to update proxy settings (sticky sessions, smart routing)
+   * for a specific proxy by username, similar to how find() and delete() work.
+   *
+   * @param username - The username of the proxy to update
+   * @param options - The settings to update
+   * @returns A promise that resolves to true if the update was successful
+   * @throws {Error} When the update fails or the proxy doesn't exist
+   *
+   * @example
+   * ```typescript
+   * const sdk = new Aluvia('your-token');
+   * 
+   * // Update specific proxy settings
+   * await sdk.update('user123', {
+   *   stickyEnabled: true,
+   *   smartRoutingEnabled: true,
+   *   session_salt: 'abc12345'
+   * });
+   * ```
+   */
+  async update(
+    username: string, 
+    options: {
+      stickyEnabled?: boolean;
+      smartRoutingEnabled?: boolean;
+      session_salt?: string;
+    }
+  ): Promise<boolean> {
+    const baseUsername = this.stripUsernameSuffixes(username);
+    const headers = { Authorization: `Bearer ${this.token}` };
+    
+    const updateData = {
+      stickyEnabled: options.stickyEnabled,
+      smartRoutingEnabled: options.smartRoutingEnabled,
+      session_salt: options.session_salt,
+    };
+
+    const response = await api.patch<{ success: boolean; message?: string }>(
+      `/credentials/${baseUsername}`,
+      updateData,
+      headers
+    );
+
+    if (response.success) {
+      // Update local cache if the proxy exists
+      const existingCred = this.credentials.find(cred => 
+        this.stripUsernameSuffixes(cred.username) === baseUsername
+      );
+      
+      if (existingCred) {
+        existingCred.stickyEnabled = options.stickyEnabled ?? existingCred.stickyEnabled;
+        existingCred.smartRoutingEnabled = options.smartRoutingEnabled ?? existingCred.smartRoutingEnabled;
+        existingCred.session_salt = options.session_salt ?? existingCred.session_salt;
+      }
+      
+      return true;
+    }
+
+    throw new ApiError(response.message || "Failed to update proxy");
   }
 
   /**

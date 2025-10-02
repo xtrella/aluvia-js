@@ -233,25 +233,62 @@ describe("ApiClient", () => {
     });
   });
 
-  describe("put method", () => {
-    it("should make PUT request with data", async () => {
+  describe("patch method", () => {
+    it("should make PATCH request with data", async () => {
       const mockResponse = {
         ok: true,
         json: jest.fn().mockResolvedValue({ updated: true }),
       };
       mockFetch.mockResolvedValue(mockResponse as any);
 
-      const putData = { id: 1, name: "Updated Name" };
-      const result = await apiClient.put("/users/1", putData);
+      const patchData = { id: 1, name: "Patched Name" };
+      const result = await apiClient.patch("/users/1", patchData);
 
       expect(mockFetch).toHaveBeenCalledWith("https://api.test.com/users/1", {
-        method: "PUT",
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(putData),
+        body: JSON.stringify(patchData),
       });
       expect(result).toEqual({ updated: true });
+    });
+
+    it("should make PATCH request without data", async () => {
+      const mockResponse = {
+        ok: true,
+        json: jest.fn().mockResolvedValue({ success: true }),
+      };
+      mockFetch.mockResolvedValue(mockResponse as any);
+
+      await apiClient.patch("/action");
+
+      expect(mockFetch).toHaveBeenCalledWith("https://api.test.com/action", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: undefined,
+      });
+    });
+
+    it("should include headers in PATCH request", async () => {
+      const mockResponse = {
+        ok: true,
+        json: jest.fn().mockResolvedValue({}),
+      };
+      mockFetch.mockResolvedValue(mockResponse as any);
+
+      await apiClient.patch("/users/1", { name: "test" }, { Authorization: "Bearer token" });
+
+      expect(mockFetch).toHaveBeenCalledWith("https://api.test.com/users/1", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer token",
+        },
+        body: JSON.stringify({ name: "test" }),
+      });
     });
   });
 

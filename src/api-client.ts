@@ -180,6 +180,18 @@ export class ApiClient {
   ): Promise<T> {
     return this.request<T>(endpoint, { method: "DELETE", headers });
   }
+
+  async patch<T>(
+    endpoint: string,
+    data?: any,
+    headers?: Record<string, string>
+  ): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: "PATCH",
+      headers,
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  }
 }
 
 export const api = new ApiClient();

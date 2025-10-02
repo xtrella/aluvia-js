@@ -12,6 +12,7 @@ jest.mock("../src/api-client.js", () => ({
     get: jest.fn(),
     post: jest.fn(),
     delete: jest.fn(),
+    patch: jest.fn(),
   },
 }));
 
@@ -240,6 +241,108 @@ describe("Aluvia SDK", () => {
     });
   });
 
+  describe("update", () => {
+    const mockUpdateResponse = {
+      success: true,
+    };
+
+    beforeEach(async () => {
+      // Add some proxies to cache first
+      mockApi.post.mockResolvedValue({
+        success: true,
+        data: [
+          { username: "user1", password: "pass1" },
+          { username: "user2", password: "pass2" },
+        ],
+      });
+      await sdk.create(2);
+      jest.clearAllMocks();
+    });
+
+    it("should update proxy by username", async () => {
+      mockApi.patch.mockResolvedValue(mockUpdateResponse);
+
+      const result = await sdk.update("user1", {
+        stickyEnabled: true,
+        smartRoutingEnabled: true,
+        session_salt: "abc12345",
+      });
+
+      expect(result).toBe(true);
+      expect(mockApi.patch).toHaveBeenCalledWith("/credentials/user1", {
+        stickyEnabled: true,
+        smartRoutingEnabled: true,
+        session_salt: "abc12345",
+      }, {
+        Authorization: `Bearer ${validToken}`,
+      });
+    });
+
+    it("should update proxy by username with suffixes", async () => {
+      mockApi.patch.mockResolvedValue(mockUpdateResponse);
+
+      const result = await sdk.update("user1-session-old123-routing-smart", {
+        stickyEnabled: false,
+      });
+
+      expect(result).toBe(true);
+      expect(mockApi.patch).toHaveBeenCalledWith("/credentials/user1", {
+        stickyEnabled: false,
+      }, {
+        Authorization: `Bearer ${validToken}`,
+      });
+    });
+
+    it("should update local cache when proxy exists", async () => {
+      mockApi.patch.mockResolvedValue(mockUpdateResponse);
+
+      await sdk.update("user1", {
+        stickyEnabled: true,
+        smartRoutingEnabled: true,
+        session_salt: "test123",
+      });
+
+      const allProxies = sdk.all();
+      const updatedProxy = allProxies.find(p => p.info.username.includes("user1"));
+      
+      expect(updatedProxy?.info.stickyEnabled).toBe(true);
+      expect(updatedProxy?.info.smartRoutingEnabled).toBe(true);
+    });
+
+    it("should handle partial updates", async () => {
+      mockApi.patch.mockResolvedValue(mockUpdateResponse);
+
+      const result = await sdk.update("user1", {
+        stickyEnabled: true,
+        // smartRoutingEnabled not specified
+      });
+
+      expect(result).toBe(true);
+      expect(mockApi.patch).toHaveBeenCalledWith("/credentials/user1", {
+        stickyEnabled: true,
+        smartRoutingEnabled: undefined,
+        session_salt: undefined,
+      }, {
+        Authorization: `Bearer ${validToken}`,
+      });
+    });
+
+    it("should throw error when update fails", async () => {
+      mockApi.patch.mockResolvedValue({
+        success: false,
+        message: "Proxy not found",
+      });
+
+      await expect(sdk.update("user1", { stickyEnabled: true })).rejects.toThrow("Proxy not found");
+    });
+
+    it("should throw error when API request fails", async () => {
+      mockApi.patch.mockRejectedValue(new Error("Network error"));
+
+      await expect(sdk.update("user1", { stickyEnabled: true })).rejects.toThrow("Network error");
+    });
+  });
+  
   describe("delete", () => {
     const mockDeleteResponse = {
       success: true,
