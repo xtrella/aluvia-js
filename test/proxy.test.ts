@@ -394,7 +394,6 @@ describe("Proxy", () => {
       mockSdk.update.mockRejectedValue(new Error("Network failure"));
 
       const originalState = { ...proxy.info };
-
       await expect(proxy.enableSticky()).rejects.toThrow("Network failure");
 
       // State should still be updated locally even if sync fails
@@ -405,15 +404,9 @@ describe("Proxy", () => {
 
   describe("usage", () => {
     const mockUsageData = {
-      username: "testuser123",
-      usage_start: 1705478400,
-      usage_end: 1706083200,
-      data_used: 1.8,
-      created_at: 1705478400,
-      updated_at: 1705564800,
-      options: {
-        use_sticky: false,
-      },
+      usageStart: 1705478400,
+      usageEnd: 1706083200,
+      dataUsed: 1.8,
     };
 
     it("should call SDK usage method without options", async () => {
@@ -422,22 +415,21 @@ describe("Proxy", () => {
       const usage = await proxy.usage();
 
       expect(mockSdk.usage).toHaveBeenCalledWith("testuser123", undefined);
-      expect(usage.data_used).toBe(1.8);
-      expect(usage.username).toBe("testuser123");
+      expect(usage.dataUsed).toBe(1.8);
     });
 
     it("should call SDK usage method with date range options", async () => {
       mockSdk.usage.mockResolvedValue(mockUsageData);
 
       const options = {
-        usage_start: 1705478400,
-        usage_end: 1706083200,
+        usageStart: 1705478400,
+        usageEnd: 1706083200,
       };
 
       const usage = await proxy.usage(options);
 
       expect(mockSdk.usage).toHaveBeenCalledWith("testuser123", options);
-      expect(usage.data_used).toBe(1.8);
+      expect(usage.dataUsed).toBe(1.8);
     });
 
     it("should propagate usage request failures", async () => {
@@ -449,9 +441,9 @@ describe("Proxy", () => {
     it("should handle partial date options", async () => {
       mockSdk.usage.mockResolvedValue(mockUsageData);
 
-      await proxy.usage({ usage_start: 1705478400 });
+      await proxy.usage({ usageStart: 1705478400 });
       expect(mockSdk.usage).toHaveBeenCalledWith("testuser123", {
-        usage_start: 1705478400,
+        usageStart: 1705478400,
       });
     });
   });

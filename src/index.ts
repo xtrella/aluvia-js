@@ -88,16 +88,15 @@ export class Proxy {
    *
    * // Get usage for last week
    * const lastWeek = await proxy.usage({
-   *   usage_start: Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60),
-   *   usage_end: Math.floor(Date.now() / 1000)
+   *   usageStart: Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60),
+   *   usageEnd: Math.floor(Date.now() / 1000)
    * });
    * ```
    */
-  async usage(options?: { usage_start?: number; usage_end?: number }): Promise<{
-    username: string;
-    usage_start: number;
-    usage_end: number;
-    data_used: number;
+  async usage(options?: { usageStart?: number; usageEnd?: number }): Promise<{
+    usageStart: number;
+    usageEnd: number;
+    dataUsed: number;
   }> {
     return this.sdk.usage(this.credential.username, options);
   }
@@ -686,36 +685,32 @@ export class Aluvia {
    *
    * // Get usage for specific date range
    * const customUsage = await sdk.usage('user123', {
-   *   usage_start: 1705478400,
-   *   usage_end: 1706083200
+   *   usageStart: 1705478400,
+   *   usageEnd: 1706083200
    * });
    * ```
    */
   async usage(
     username: string,
     options?: {
-      usage_start?: number;
-      usage_end?: number;
+      usageStart?: number;
+      usageEnd?: number;
     }
   ): Promise<{
-    username: string;
-    usage_start: number;
-    usage_end: number;
-    data_used: number;
-    created_at: number;
-    updated_at: number;
-    options: Record<string, any>;
+    usageStart: number;
+    usageEnd: number;
+    dataUsed: number;
   }> {
     const validUsername = validateUsername(username);
     const baseUsername = this.stripUsernameSuffixes(validUsername);
     const headers = { Authorization: `Bearer ${this.token}` };
 
     const queryParams = new URLSearchParams();
-    if (options?.usage_start) {
-      queryParams.append("usage_start", options.usage_start.toString());
+    if (options?.usageStart) {
+      queryParams.append("usage_start", options.usageStart.toString());
     }
-    if (options?.usage_end) {
-      queryParams.append("usage_end", options.usage_end.toString());
+    if (options?.usageEnd) {
+      queryParams.append("usage_end", options.usageEnd.toString());
     }
 
     const endpoint = `/credentials/${baseUsername}${
@@ -725,19 +720,19 @@ export class Aluvia {
     const response = await api.get<{
       success: boolean;
       data: {
-        username: string;
         usage_start: number;
         usage_end: number;
         data_used: number;
-        created_at: number;
-        updated_at: number;
-        options: Record<string, any>;
       };
       message?: string;
     }>(endpoint, headers);
 
     if (response.success) {
-      return response.data;
+      return {
+        usageStart: response.data.usage_start,
+        usageEnd: response.data.usage_end,
+        dataUsed: response.data.data_used,
+      };
     }
 
     throw new ApiError(response.message || "Failed to get proxy usage");
