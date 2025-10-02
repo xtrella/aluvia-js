@@ -29,6 +29,7 @@ describe("Proxy", () => {
     mockConfig = {
       host: "proxy.aluvia.io",
       httpPort: 8080,
+      httpsPort: 8443,
     };
 
     // Create proxy instance
@@ -42,6 +43,7 @@ describe("Proxy", () => {
       expect(proxy.info.password).toBe("testpass456");
       expect(proxy.info.host).toBe("proxy.aluvia.io");
       expect(proxy.info.httpPort).toBe(8080);
+      expect(proxy.info.httpsPort).toBe(8443);
     });
   });
 
@@ -129,7 +131,7 @@ describe("Proxy", () => {
 
     it("should generate correct HTTPS proxy URL", () => {
       const url = proxy.url("https" as any);
-      expect(url).toBe("https://testuser123:testpass456@proxy.aluvia.io:8080");
+      expect(url).toBe("https://testuser123:testpass456@proxy.aluvia.io:8443");
     });
 
     it("should default to HTTP protocol", () => {
@@ -185,6 +187,7 @@ describe("Proxy", () => {
         password: "testpass456",
         host: "proxy.aluvia.io",
         httpPort: 8080,
+        httpsPort: 8443,
         stickyEnabled: false,
         smartRoutingEnabled: false,
       });
