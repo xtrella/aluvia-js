@@ -20,8 +20,8 @@ describe("Aluvia SDK Integration", () => {
   });
 
   it("should throw error with invalid token", () => {
-    expect(() => new Aluvia("")).toThrow("A valid API token is required");
-    expect(() => new Aluvia("   ")).toThrow("A valid API token is required");
+    expect(() => new Aluvia("")).toThrow("API token cannot be empty");
+    expect(() => new Aluvia("   ")).toThrow("API token cannot be empty");
   });
 
   it("should be able to import Proxy class", () => {

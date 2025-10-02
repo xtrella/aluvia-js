@@ -4,10 +4,10 @@
 
 import { describe, it, expect, jest, beforeEach } from "@jest/globals";
 import { Aluvia, Proxy } from "../src/index.js";
-import { api } from "../src/api-client.js";
+import { api } from '../src/api-client.js';
 
 // Mock the API client
-jest.mock("../src/apiClient.js", () => ({
+jest.mock("../src/api-client.js", () => ({
   api: {
     get: jest.fn(),
     post: jest.fn(),
@@ -33,22 +33,22 @@ describe("Aluvia SDK", () => {
     });
 
     it("should throw error with empty token", () => {
-      expect(() => new Aluvia("")).toThrow("A valid API token is required");
+      expect(() => new Aluvia("")).toThrow("API token cannot be empty");
     });
 
     it("should throw error with whitespace-only token", () => {
-      expect(() => new Aluvia("   ")).toThrow("A valid API token is required");
+      expect(() => new Aluvia("   ")).toThrow("API token cannot be empty");
     });
 
     it("should throw error with null token", () => {
       expect(() => new Aluvia(null as any)).toThrow(
-        "A valid API token is required"
+        "API token must be a string"
       );
     });
 
     it("should throw error with undefined token", () => {
       expect(() => new Aluvia(undefined as any)).toThrow(
-        "A valid API token is required"
+        "API token must be a string"
       );
     });
 
@@ -165,12 +165,10 @@ describe("Aluvia SDK", () => {
       expect(proxy).toBeNull();
     });
 
-    it("should return null when API request fails", async () => {
+    it("should throw error when API request fails", async () => {
       mockApi.get.mockRejectedValue(new Error("Network error"));
 
-      const proxy = await sdk.find("targetuser");
-
-      expect(proxy).toBeNull();
+      await expect(sdk.find("targetuser")).rejects.toThrow("Network error");
     });
   });
 

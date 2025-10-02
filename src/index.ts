@@ -377,8 +377,10 @@ export class Aluvia {
 
       return null;
     } catch (error) {
-      console.error("Failed to find credential:", error);
-      return null;
+      if (error instanceof ApiError && error.statusCode === 404) {
+        return null; // Proxy not found is not an error condition
+      }
+      throw error; // Re-throw other errors
     }
   }
 
