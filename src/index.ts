@@ -32,6 +32,8 @@ export interface ProxyConfig {
   host: string;
   /** The HTTP port number for the proxy server */
   httpPort: number;
+  /** The HTTPS port number for the proxy server */
+  httpsPort: number;
 }
 
 /**
@@ -45,9 +47,9 @@ export interface ProxyConfig {
  * // Enable sticky sessions
  * proxy.enableSticky();
  *
- * // Get the proxy URL
- * const proxyUrl = proxy.url('http');
- * console.log(proxyUrl); // http://username:password@proxy.aluvia.io:8080
+ * // Get the proxy URLs
+ * const httpUrl = proxy.url('http');   // http://username:password@proxy.aluvia.io:8080
+ * const httpsUrl = proxy.url('https'); // https://username:password@proxy.aluvia.io:8443
  * ```
  *
  * @public
@@ -147,9 +149,10 @@ export class Proxy {
    * const httpsUrl = proxy.url('https');
    * ```
    */
-  url(protocol: "http" = "http"): string {
+  url(protocol: "http" | "https" = "http"): string {
     const builtCredential = this.buildCredential();
-    const port = this.config.httpPort;
+    const port =
+      protocol === "https" ? this.config.httpsPort : this.config.httpPort;
 
     return `${protocol}://${builtCredential.username}:${builtCredential.password}@${this.config.host}:${port}`;
   }
@@ -190,6 +193,7 @@ export class Proxy {
       password: builtCredential.password,
       host: this.config.host,
       httpPort: this.config.httpPort,
+      httpsPort: this.config.httpsPort,
       sticky_enabled: this.credential.sticky_enabled,
       smart_routing_enabled: this.credential.smart_routing_enabled,
     };
@@ -266,6 +270,7 @@ export class Aluvia {
   private config: ProxyConfig = {
     host: "proxy.aluvia.io",
     httpPort: 8080,
+    httpsPort: 8443,
   };
 
   private credentials: ProxyCredential[] = [];
