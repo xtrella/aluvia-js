@@ -37,6 +37,42 @@ export interface ProxyConfig {
 }
 
 /**
+ * Base API response structure.
+ * @internal
+ */
+interface ApiResponse<T = any> {
+  success: boolean;
+  message?: string;
+  data: T;
+}
+
+/**
+ * Raw credential data from API responses.
+ * @internal
+ */
+interface RawCredential {
+  username: string;
+  password: string;
+  options: Record<string, any>;
+}
+
+/**
+ * Usage data from API responses.
+ * @internal
+ */
+interface RawUsageData {
+  usage_start: number;
+  usage_end: number;
+  data_used: number;
+}
+
+/**
+ * Simple API response with no data.
+ * @internal
+ */
+type SimpleApiResponse = Omit<ApiResponse, 'data'>;
+
+/**
  * Represents a single proxy instance with methods for configuration and connection management.
  *
  * @example
@@ -399,14 +435,7 @@ export class Aluvia {
    */
   async first(): Promise<Proxy | null> {
     const headers = { Authorization: `Bearer ${this.token}` };
-    const response = await api.get<{
-      success: boolean;
-      data: Array<{
-        username: string;
-        password: string;
-        options: Record<string, any>;
-      }>;
-    }>("/credentials", headers);
+    const response = await api.get<ApiResponse<RawCredential[]>>("/credentials", headers);
 
     if (!response.success) {
       throw new ApiError("Failed to load credentials");
@@ -456,14 +485,7 @@ export class Aluvia {
       }
 
       const headers = { Authorization: `Bearer ${this.token}` };
-      const response = await api.get<{
-        success: boolean;
-        data: {
-          username: string;
-          password: string;
-          options: Record<string, any>;
-        };
-      }>("/credentials/" + baseUsername, headers);
+      const response = await api.get<ApiResponse<RawCredential>>("/credentials/" + baseUsername, headers);
 
       if (!response.success) {
         return null;
@@ -509,15 +531,7 @@ export class Aluvia {
     const validCount = validateProxyCount(count);
 
     const headers = { Authorization: `Bearer ${this.token}` };
-    const response = await api.post<{
-      success: boolean;
-      message?: string;
-      data: {
-        username: string;
-        password: string;
-        options: Record<string, any>;
-      }[];
-    }>("/credentials", { count: validCount }, headers);
+    const response = await api.post<ApiResponse<RawCredential[]>>("/credentials", { count: validCount }, headers);
 
     if (!response.success) {
       throw new ApiError(response.message || "Failed to create proxies");
@@ -573,15 +587,7 @@ export class Aluvia {
       },
     };
 
-    const response = await api.patch<{
-      success: boolean;
-      message?: string;
-      data: {
-        username: string;
-        password: string;
-        options: Record<string, any>;
-      };
-    }>(`/credentials/${baseUsername}`, updateData, headers);
+    const response = await api.patch<ApiResponse<RawCredential>>(`/credentials/${baseUsername}`, updateData, headers);
 
     if (!response.success) {
       throw new ApiError(response.message || "Failed to update proxy");
@@ -626,7 +632,7 @@ export class Aluvia {
     const baseUsername = this.stripUsernameSuffixes(validUsername);
 
     const headers = { Authorization: `Bearer ${this.token}` };
-    const response = await api.delete<{ success: boolean; message?: string }>(
+    const response = await api.delete<SimpleApiResponse>(
       "/credentials/" + baseUsername,
       headers
     );
@@ -717,15 +723,7 @@ export class Aluvia {
       queryParams.toString() ? "?" + queryParams.toString() : ""
     }`;
 
-    const response = await api.get<{
-      success: boolean;
-      data: {
-        usage_start: number;
-        usage_end: number;
-        data_used: number;
-      };
-      message?: string;
-    }>(endpoint, headers);
+    const response = await api.get<ApiResponse<RawUsageData>>(endpoint, headers);
 
     if (response.success) {
       return {
