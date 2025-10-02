@@ -57,13 +57,14 @@ describe("Proxy", () => {
 
       expect(mockSdk.update).toHaveBeenCalledWith("testuser123", {
         stickyEnabled: false,
+        smartRoutingEnabled: false,
       });
       expect(result).toBe(true);
     });
 
     it("should call SDK update with enabled features", async () => {
       mockSdk.update.mockResolvedValue(true);
-      
+
       // Manually set the credential state for testing
       mockCredential.stickyEnabled = true;
 
@@ -71,6 +72,7 @@ describe("Proxy", () => {
 
       expect(mockSdk.update).toHaveBeenCalledWith("testuser123", {
         stickyEnabled: true,
+        smartRoutingEnabled: false,
       });
       expect(result).toBe(true);
     });
@@ -181,7 +183,9 @@ describe("Proxy", () => {
     it("should propagate update failures", async () => {
       mockSdk.update.mockRejectedValue(new Error("Routing disable failed"));
 
-      await expect(proxy.disableSmartRouting()).rejects.toThrow("Routing disable failed");
+      await expect(proxy.disableSmartRouting()).rejects.toThrow(
+        "Routing disable failed"
+      );
     });
   });
 
@@ -233,7 +237,7 @@ describe("Proxy", () => {
     it("should include session salt in URL when sticky is enabled", async () => {
       mockSdk.update.mockResolvedValue(true);
       await proxy.enableSticky();
-      
+
       const url = proxy.url();
       expect(url).toMatch(
         /^http:\/\/testuser123-session-[a-zA-Z0-9]{8}:testpass456@proxy\.aluvia\.io:8080$/
@@ -243,7 +247,7 @@ describe("Proxy", () => {
     it("should include smart routing suffix in URL when enabled", async () => {
       mockSdk.update.mockResolvedValue(true);
       await proxy.enableSmartRouting();
-      
+
       const url = proxy.url();
       expect(url).toBe(
         "http://testuser123-routing-smart:testpass456@proxy.aluvia.io:8080"
@@ -377,10 +381,7 @@ describe("Proxy", () => {
       mockSdk.update.mockResolvedValue(true);
 
       // Simulate concurrent operations
-      const promises = [
-        proxy.enableSticky(),
-        proxy.enableSmartRouting(),
-      ];
+      const promises = [proxy.enableSticky(), proxy.enableSmartRouting()];
 
       await Promise.all(promises);
 
@@ -411,8 +412,8 @@ describe("Proxy", () => {
       created_at: 1705478400,
       updated_at: 1705564800,
       options: {
-        use_sticky: false
-      }
+        use_sticky: false,
+      },
     };
 
     it("should call SDK usage method without options", async () => {
@@ -430,9 +431,9 @@ describe("Proxy", () => {
 
       const options = {
         usage_start: 1705478400,
-        usage_end: 1706083200
+        usage_end: 1706083200,
       };
-      
+
       const usage = await proxy.usage(options);
 
       expect(mockSdk.usage).toHaveBeenCalledWith("testuser123", options);
@@ -449,7 +450,9 @@ describe("Proxy", () => {
       mockSdk.usage.mockResolvedValue(mockUsageData);
 
       await proxy.usage({ usage_start: 1705478400 });
-      expect(mockSdk.usage).toHaveBeenCalledWith("testuser123", { usage_start: 1705478400 });
+      expect(mockSdk.usage).toHaveBeenCalledWith("testuser123", {
+        usage_start: 1705478400,
+      });
     });
   });
 });

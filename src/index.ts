@@ -593,9 +593,7 @@ export class Aluvia {
       if (credBaseUsername === baseUsername) {
         return {
           ...cred,
-          stickyEnabled: options.stickyEnabled ?? cred.stickyEnabled,
-          smartRoutingEnabled:
-            options.smartRoutingEnabled ?? cred.smartRoutingEnabled,
+          ...this.parseOptions(response.data.options),
         };
       }
       return cred;
