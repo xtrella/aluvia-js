@@ -67,7 +67,6 @@ export function validatePositiveNumber(
 export function validateApiToken(token: any): string {
   const validToken = validateRequiredString(token, "API token");
 
-  // Basic token format validation (adjust based on your token format)
   if (validToken.length < 10) {
     throw new ValidationError("API token appears to be too short", {
       field: "token",
