@@ -571,7 +571,18 @@ export class Aluvia {
       }
     };
 
-    const response = await api.patch<{ success: boolean; message?: string }>(
+    const response = await api.patch<{ 
+      success: boolean; 
+      data?: {
+        username: string;
+        created_at: number;
+        updated_at: number;
+        options: {
+          use_sticky?: boolean;
+        };
+      };
+      message?: string;
+    }>(
       `/credentials/${baseUsername}`,
       updateData,
       headers
