@@ -1,10 +1,18 @@
 {
   "name": "aluvia",
   "version": "1.0.0",
-  "description": "Official Aluvia proxy management SDK for Node.js",
+  "description": "Official Aluvia proxy management SDK for Node.js and modern JavaScript environments",
   "main": "dist/index.js",
+  "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "scripts": {
     "build": "npm run clean && tsc",
     "build:watch": "tsc --watch",
@@ -24,10 +32,16 @@
     "proxy",
     "aluvia",
     "http",
+    "https",
     "sdk",
     "api",
     "typescript",
-    "nodejs"
+    "nodejs",
+    "proxy-management",
+    "web-scraping",
+    "rotating-proxy",
+    "sticky-sessions",
+    "smart-routing"
   ],
   "author": "Aluvia",
   "license": "MIT",
@@ -40,13 +54,24 @@
   },
   "homepage": "https://github.com/xtrella/aluvia-js#readme",
   "files": [
-    "dist",
+    "dist/**/*",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md"
   ],
-  "engines": {
-    "node": ">=16.0.0"
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "funding": {
+    "type": "individual",
+    "url": "https://github.com/sponsors/aluvia"
+  },
+  "sideEffects": false,
   "dependencies": {
     "node-fetch": "^3.3.2"
   },

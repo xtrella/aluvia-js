@@ -4,7 +4,7 @@ import {
   validateUsername,
   validateProxyCount,
 } from "./validation.js";
-import { NotFoundError, ApiError } from "./errors.js";
+import { ApiError } from "./errors.js";
 
 /**
  * Represents the authentication credentials for a proxy connection.
@@ -120,7 +120,7 @@ export class Proxy {
    * ```typescript
    * const proxy = await sdk.first();
    * const usage = await proxy.usage();
-   * console.log(`This proxy has used ${usage.data_used} GB`);
+   * console.log(`This proxy has used ${usage.dataUsed} GB`);
    *
    * // Get usage for last week
    * const lastWeek = await proxy.usage({
@@ -144,7 +144,8 @@ export class Proxy {
    * with the Aluvia API server.
    *
    * @returns A promise that resolves to true if the update was successful
-   * @throws {Error} When the update fails or the proxy doesn't exist
+   * @throws {ApiError} When the update fails or the proxy doesn't exist
+   * @throws {NetworkError} When network connectivity issues occur
    *
    * @example
    * ```typescript
@@ -361,11 +362,20 @@ export class Proxy {
  *
  * // Find a specific proxy
  * const foundProxy = await sdk.find('username123');
+ *
+ * // Update proxy settings
+ * await sdk.update('username123', { stickyEnabled: true });
+ *
+ * // Get usage information
+ * const usage = await sdk.usage('username123');
  * ```
  *
  * @public
  */
 export class Aluvia {
+  /** SDK version for tracking and debugging */
+  public static readonly VERSION = "1.0.0";
+
   private config: ProxyConfig = {
     host: "proxy.aluvia.io",
     httpPort: 8080,
@@ -379,7 +389,7 @@ export class Aluvia {
    * Creates a new Aluvia SDK instance.
    *
    * @param token - Your Aluvia API authentication token
-   * @throws {ValidationError} When token is not provided or invalid
+   * @throws {ValidationError} When token is not provided, invalid, or empty
    *
    * @example
    * ```typescript
@@ -419,7 +429,9 @@ export class Aluvia {
    * when you don't need a specific proxy instance.
    *
    * @returns A promise that resolves to a Proxy instance, or null if no proxies exist
-   * @throws {Error} When the API request fails or authentication is invalid
+   * @throws {ApiError} When the API request fails or returns an error response
+   * @throws {ValidationError} When the API token is invalid
+   * @throws {NetworkError} When network connectivity issues occur
    *
    * @example
    * ```typescript
@@ -441,7 +453,7 @@ export class Aluvia {
     );
 
     if (!response.success) {
-      throw new ApiError("Failed to load credentials");
+      throw new ApiError(response.message || "Failed to load credentials");
     }
 
     this.credentials = response.data?.map((cred) => ({
@@ -465,6 +477,9 @@ export class Aluvia {
    *
    * @param username - The base username of the proxy to find
    * @returns A promise that resolves to a Proxy instance, or null if not found
+   * @throws {ApiError} When the API request fails (excluding 404 not found)
+   * @throws {ValidationError} When the username format is invalid
+   * @throws {NetworkError} When network connectivity issues occur
    *
    * @example
    * ```typescript
@@ -519,7 +534,9 @@ export class Aluvia {
    *
    * @param count - The number of proxies to create (default: 1, max varies by plan)
    * @returns A promise that resolves to an array of newly created Proxy instances
-   * @throws {Error} When creation fails, quota is exceeded, or API request fails
+   * @throws {ApiError} When creation fails or quota is exceeded
+   * @throws {ValidationError} When the count parameter is invalid (< 1 or > limit)
+   * @throws {NetworkError} When network connectivity issues occur
    *
    * @example
    * ```typescript
@@ -544,7 +561,8 @@ export class Aluvia {
     );
 
     if (!response.success) {
-      throw new ApiError(response.message || "Failed to create proxies");
+      const errorMsg = response.message || "Failed to create proxies";
+      throw new ApiError(`${errorMsg}. Requested count: ${validCount}`);
     }
 
     const newCredentials = response.data.map((cred) => ({
@@ -566,7 +584,9 @@ export class Aluvia {
    * @param username - The username of the proxy to update
    * @param options - The settings to update
    * @returns A promise that resolves to true if the update was successful
-   * @throws {Error} When the update fails or the proxy doesn't exist
+   * @throws {ApiError} When the update fails or the proxy doesn't exist
+   * @throws {ValidationError} When the username or options are invalid
+   * @throws {NetworkError} When network connectivity issues occur
    *
    * @example
    * ```typescript
@@ -604,7 +624,8 @@ export class Aluvia {
     );
 
     if (!response.success) {
-      throw new ApiError(response.message || "Failed to update proxy");
+      const errorMsg = response.message || "Failed to update proxy";
+      throw new ApiError(`${errorMsg}. Username: ${baseUsername}`);
     }
 
     this.credentials = this.credentials.map((cred) => {
@@ -629,7 +650,9 @@ export class Aluvia {
    *
    * @param username - The username of the proxy to delete
    * @returns A promise that resolves to true if deletion was successful
-   * @throws {Error} When deletion fails or the proxy doesn't exist
+   * @throws {ApiError} When deletion fails or the proxy doesn't exist
+   * @throws {ValidationError} When the username format is invalid
+   * @throws {NetworkError} When network connectivity issues occur
    *
    * @example
    * ```typescript
@@ -693,7 +716,9 @@ export class Aluvia {
    * @param username - The username of the proxy to get usage for
    * @param options - Optional date range filtering
    * @returns A promise that resolves to detailed usage information
-   * @throws {Error} When the API request fails or the proxy doesn't exist
+   * @throws {ApiError} When the API request fails or the proxy doesn't exist
+   * @throws {ValidationError} When the username or date range is invalid
+   * @throws {NetworkError} When network connectivity issues occur
    *
    * @example
    * ```typescript
@@ -701,7 +726,7 @@ export class Aluvia {
    *
    * // Get usage for current period
    * const usage = await sdk.usage('user123');
-   * console.log(`Data used: ${usage.data_used} GB`);
+   * console.log(`Data used: ${usage.dataUsed} GB`);
    *
    * // Get usage for specific date range
    * const customUsage = await sdk.usage('user123', {

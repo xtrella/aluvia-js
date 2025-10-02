@@ -125,13 +125,14 @@ export class ApiClient {
           status,
           errorDetails
         );
-      case 429:
+      case 429: {
         const retryAfter = response.headers.get("Retry-After");
         throw new RateLimitError(
           errorMessage.includes("HTTP") ? "Rate limit exceeded" : errorMessage,
           retryAfter ? parseInt(retryAfter, 10) : undefined,
           errorDetails
         );
+      }
       case 500:
       case 502:
       case 503:
