@@ -1,6 +1,15 @@
-# Aluvia JavaScript SDK
+# Aluvia SDK for Node.js
 
-Official JavaScript/TypeScript SDK for Aluvia proxy management.
+The official Aluvia proxy management SDK for Node.js and browser environments. This lightweight, TypeScript-first SDK provides a simple interface to manage your Aluvia proxies programmatically.
+
+## Features
+
+- 🌍 **Universal**: Works in both Node.js (≥16) and browser environments
+- 🏷️ **TypeScript**: Full TypeScript support with comprehensive type definitions
+- ⚡ **Lightweight**: Zero dependencies in modern environments (uses native `fetch`)
+- 🔒 **Secure**: Built-in authentication and error handling
+- 🧪 **Tested**: Comprehensive test suite with high coverage
+- 📖 **Well-documented**: Extensive JSDoc comments and examples
 
 ## Installation
 
@@ -13,9 +22,9 @@ npm install aluvia
 ### Basic Setup
 
 ```javascript
-import Aluvia from 'aluvia';
+import Aluvia from "aluvia";
 
-const aluvia = new Aluvia('your-api-token');
+const aluvia = new Aluvia("your-api-token");
 ```
 
 ### Get First Available Proxy
@@ -23,17 +32,17 @@ const aluvia = new Aluvia('your-api-token');
 ```javascript
 const proxy = await aluvia.first();
 if (proxy) {
-  console.log('Proxy URL:', proxy.url());
-  console.log('Proxy Info:', proxy.info);
+  console.log("Proxy URL:", proxy.url());
+  console.log("Proxy Info:", proxy.info);
 }
 ```
 
 ### Find Specific Proxy
 
 ```javascript
-const proxy = await aluvia.find('username');
+const proxy = await aluvia.find("username");
 if (proxy) {
-  console.log('Found proxy:', proxy.url());
+  console.log("Found proxy:", proxy.url());
 }
 ```
 
@@ -44,8 +53,8 @@ if (proxy) {
 const proxies = await aluvia.create(5);
 console.log(`Created ${proxies.length} proxies`);
 
-proxies.forEach(proxy => {
-  console.log('Proxy URL:', proxy.url());
+proxies.forEach((proxy) => {
+  console.log("Proxy URL:", proxy.url());
 });
 ```
 
@@ -55,12 +64,12 @@ proxies.forEach(proxy => {
 const proxy = await aluvia.first();
 if (proxy) {
   // Enable sticky sessions
-  proxy.enable_sticky();
-  
+  proxy.enableSticky();
+
   // Enable smart routing
-  proxy.enable_smart_routing();
-  
-  console.log('Enhanced proxy URL:', proxy.url());
+  proxy.enableSmartRouting();
+
+  console.log("Enhanced proxy URL:", proxy.url());
 }
 ```
 
@@ -70,7 +79,7 @@ if (proxy) {
 const proxy = await aluvia.first();
 if (proxy) {
   const deleted = await proxy.delete();
-  console.log('Proxy deleted:', deleted);
+  console.log("Proxy deleted:", deleted);
 }
 ```
 
@@ -79,9 +88,11 @@ if (proxy) {
 ### Aluvia Class
 
 #### Constructor
+
 - `new Aluvia(token?: string)` - Create a new Aluvia instance with optional API token
 
 #### Methods
+
 - `first(): Promise<Proxy | null>` - Get the first available proxy
 - `find(username: string): Promise<Proxy | null>` - Find proxy by username
 - `create(count?: number): Promise<Proxy[]>` - Create new proxies (default: 1)
@@ -91,14 +102,16 @@ if (proxy) {
 ### Proxy Class
 
 #### Methods
-- `enable_sticky(): this` - Enable sticky sessions
-- `enable_smart_routing(): this` - Enable smart routing
-- `disable_sticky(): this` - Disable sticky sessions
-- `disable_smart_routing(): this` - Disable smart routing
+
+- `enableSticky(): this` - Enable sticky sessions
+- `enableSmartRouting(): this` - Enable smart routing
+- `disableSticky(): this` - Disable sticky sessions
+- `disableSmartRouting(): this` - Disable smart routing
 - `url(protocol?: 'http'): string` - Get formatted proxy URL
 - `delete(): Promise<boolean>` - Delete this proxy
 
 #### Properties
+
 - `info` - Get proxy information object
 
 ## Advanced Configuration
@@ -106,18 +119,18 @@ if (proxy) {
 ### Custom API Origin
 
 ```javascript
-import { setApiOrigin } from 'aluvia';
+import { setApiOrigin } from "aluvia";
 
-setApiOrigin('https://custom-api.example.com');
+setApiOrigin("https://custom-api.example.com");
 ```
 
 ### Token Provider
 
 ```javascript
-import { setAppTokenProvider } from 'aluvia';
+import { setAppTokenProvider } from "aluvia";
 
 setAppTokenProvider(() => {
-  return localStorage.getItem('auth-token');
+  return localStorage.getItem("auth-token");
 });
 ```
 
