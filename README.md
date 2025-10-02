@@ -1,9 +1,9 @@
 # Aluvia SDK for Node.js
 
-[![npm version](https://badge.fury.io/js/aluvia.svg)](https://www.npmjs.com/package/aluvia)
-[![TypeScript](https://img.shields.io/badge/%3C%2F%3E-TypeScript-%230074c1.svg)](http://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/node/v/aluvia.svg)](https://nodejs.org)
+[![npm version](https://badge.fury.io/js/aluvia-ts-sdk.svg)](https://www.npmjs.com/package/aluvia-ts-sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org)
+[![Node.js](https://img.shields.io/node/v/aluvia-ts-sdk.svg)](https://nodejs.org)
 
 The **official Aluvia proxy management SDK** for Node.js and modern JavaScript environments. This lightweight, TypeScript-first SDK provides a simple and powerful interface to manage your Aluvia proxies programmatically.
 
@@ -20,15 +20,15 @@ The **official Aluvia proxy management SDK** for Node.js and modern JavaScript e
 ## 📦 Installation
 
 ```bash
-npm install aluvia
+npm install aluvia-ts-sdk
 ```
 
 ```bash
-yarn add aluvia
+yarn add aluvia-ts-sdk 
 ```
 
 ```bash
-pnpm add aluvia
+pnpm add aluvia-ts-sdk 
 ```
 
 ## 🚀 Quick Start
@@ -36,7 +36,7 @@ pnpm add aluvia
 ### Basic Setup
 
 ```typescript
-import Aluvia from "aluvia";
+import Aluvia from 'aluvia-ts-sdk';
 
 // Initialize with your API token
 const aluvia = new Aluvia("your-api-token");
@@ -65,7 +65,7 @@ try {
 ### Creating Proxies
 
 ```typescript
-import Aluvia from "aluvia";
+import Aluvia from 'aluvia-ts-sdk';
 
 const aluvia = new Aluvia("your-api-token");
 
@@ -168,7 +168,7 @@ import Aluvia, {
   ValidationError,
   NetworkError,
   NotFoundError,
-} from "aluvia";
+} from "aluvia-ts-sdk";
 
 const aluvia = new Aluvia("your-api-token");
 

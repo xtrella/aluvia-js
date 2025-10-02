@@ -1,5 +1,5 @@
 {
-  "name": "aluvia",
+  "name": "aluvia-ts-sdk",
   "version": "1.0.0",
   "description": "Official Aluvia proxy management SDK for Node.js and modern JavaScript environments",
   "main": "dist/index.js",
