@@ -21,8 +21,8 @@ describe("Proxy", () => {
     mockCredential = {
       username: "testuser123",
       password: "testpass456",
-      sticky_enabled: false,
-      smart_routing_enabled: false,
+      stickyEnabled: false,
+      smartRoutingEnabled: false,
     };
 
     // Create test config
@@ -50,7 +50,7 @@ describe("Proxy", () => {
       const result = proxy.enableSticky();
 
       expect(result).toBe(proxy); // Should return this for chaining
-      expect(proxy.info.sticky_enabled).toBe(true);
+      expect(proxy.info.stickyEnabled).toBe(true);
       expect(proxy.info.username).toMatch(/testuser123-session-[a-zA-Z0-9]{8}/);
     });
 
@@ -70,7 +70,7 @@ describe("Proxy", () => {
       const result = proxy.enableSmartRouting();
 
       expect(result).toBe(proxy); // Should return this for chaining
-      expect(proxy.info.smart_routing_enabled).toBe(true);
+      expect(proxy.info.smartRoutingEnabled).toBe(true);
       expect(proxy.info.username).toBe("testuser123-routing-smart");
     });
   });
@@ -78,12 +78,12 @@ describe("Proxy", () => {
   describe("disableSticky", () => {
     it("should disable sticky sessions and remove session suffix", () => {
       proxy.enableSticky();
-      expect(proxy.info.sticky_enabled).toBe(true);
+      expect(proxy.info.stickyEnabled).toBe(true);
 
       const result = proxy.disableSticky();
 
       expect(result).toBe(proxy); // Should return this for chaining
-      expect(proxy.info.sticky_enabled).toBe(false);
+      expect(proxy.info.stickyEnabled).toBe(false);
       expect(proxy.info.username).toBe("testuser123");
     });
   });
@@ -91,12 +91,12 @@ describe("Proxy", () => {
   describe("disableSmartRouting", () => {
     it("should disable smart routing and remove routing suffix", () => {
       proxy.enableSmartRouting();
-      expect(proxy.info.smart_routing_enabled).toBe(true);
+      expect(proxy.info.smartRoutingEnabled).toBe(true);
 
       const result = proxy.disableSmartRouting();
 
       expect(result).toBe(proxy); // Should return this for chaining
-      expect(proxy.info.smart_routing_enabled).toBe(false);
+      expect(proxy.info.smartRoutingEnabled).toBe(false);
       expect(proxy.info.username).toBe("testuser123");
     });
   });
@@ -105,8 +105,8 @@ describe("Proxy", () => {
     it("should support method chaining with multiple features", () => {
       proxy.enableSticky().enableSmartRouting();
 
-      expect(proxy.info.sticky_enabled).toBe(true);
-      expect(proxy.info.smart_routing_enabled).toBe(true);
+      expect(proxy.info.stickyEnabled).toBe(true);
+      expect(proxy.info.smartRoutingEnabled).toBe(true);
       expect(proxy.info.username).toMatch(
         /testuser123-session-[a-zA-Z0-9]{8}-routing-smart/
       );
@@ -115,8 +115,8 @@ describe("Proxy", () => {
     it("should handle enabling and disabling features in sequence", () => {
       proxy.enableSticky().enableSmartRouting().disableSticky();
 
-      expect(proxy.info.sticky_enabled).toBe(false);
-      expect(proxy.info.smart_routing_enabled).toBe(true);
+      expect(proxy.info.stickyEnabled).toBe(false);
+      expect(proxy.info.smartRoutingEnabled).toBe(true);
       expect(proxy.info.username).toBe("testuser123-routing-smart");
     });
   });
@@ -185,8 +185,8 @@ describe("Proxy", () => {
         password: "testpass456",
         host: "proxy.aluvia.io",
         httpPort: 8080,
-        sticky_enabled: false,
-        smart_routing_enabled: false,
+        stickyEnabled: false,
+        smartRoutingEnabled: false,
       });
     });
 
@@ -195,8 +195,8 @@ describe("Proxy", () => {
 
       const info = proxy.info;
 
-      expect(info.sticky_enabled).toBe(true);
-      expect(info.smart_routing_enabled).toBe(true);
+      expect(info.stickyEnabled).toBe(true);
+      expect(info.smartRoutingEnabled).toBe(true);
       expect(info.username).toMatch(
         /testuser123-session-[a-zA-Z0-9]{8}-routing-smart/
       );

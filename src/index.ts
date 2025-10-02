@@ -16,9 +16,9 @@ export interface ProxyCredential {
   /** The password for proxy authentication */
   password: string;
   /** Whether sticky sessions are enabled for this proxy */
-  sticky_enabled?: boolean;
+  stickyEnabled?: boolean;
   /** Whether smart routing is enabled for this proxy */
-  smart_routing_enabled?: boolean;
+  smartRoutingEnabled?: boolean;
   /** The session salt used for sticky sessions */
   session_salt?: string;
 }
@@ -88,7 +88,7 @@ export class Proxy {
    * ```
    */
   enableSticky(): this {
-    this.credential.sticky_enabled = true;
+    this.credential.stickyEnabled = true;
     this.credential.session_salt = this.generateSessionSalt();
     return this;
   }
@@ -108,7 +108,7 @@ export class Proxy {
    * ```
    */
   enableSmartRouting(): this {
-    this.credential.smart_routing_enabled = true;
+    this.credential.smartRoutingEnabled = true;
     return this;
   }
 
@@ -118,7 +118,7 @@ export class Proxy {
    * @returns The current Proxy instance for method chaining
    */
   disableSticky(): this {
-    this.credential.sticky_enabled = false;
+    this.credential.stickyEnabled = false;
     this.credential.session_salt = undefined;
     return this;
   }
@@ -129,7 +129,7 @@ export class Proxy {
    * @returns The current Proxy instance for method chaining
    */
   disableSmartRouting(): this {
-    this.credential.smart_routing_enabled = false;
+    this.credential.smartRoutingEnabled = false;
     return this;
   }
 
@@ -183,7 +183,7 @@ export class Proxy {
    * ```typescript
    * const proxy = await sdk.first();
    * const info = proxy.info;
-   * console.log(info.username, info.host, info.sticky_enabled);
+   * console.log(info.username, info.host, info.stickyEnabled);
    * ```
    */
   get info() {
@@ -194,8 +194,8 @@ export class Proxy {
       host: this.config.host,
       httpPort: this.config.httpPort,
       httpsPort: this.config.httpsPort,
-      sticky_enabled: this.credential.sticky_enabled,
-      smart_routing_enabled: this.credential.smart_routing_enabled,
+      stickyEnabled: this.credential.stickyEnabled,
+      smartRoutingEnabled: this.credential.smartRoutingEnabled,
     };
   }
 
@@ -206,12 +206,12 @@ export class Proxy {
     let username = this.stripUsernameSuffixes(this.credential.username);
 
     // Add sticky session suffix
-    if (this.credential.sticky_enabled && this.credential.session_salt) {
+    if (this.credential.stickyEnabled && this.credential.session_salt) {
       username += `-session-${this.credential.session_salt}`;
     }
 
     // Add smart routing suffix
-    if (this.credential.smart_routing_enabled) {
+    if (this.credential.smartRoutingEnabled) {
       username += "-routing-smart";
     }
 
@@ -338,8 +338,8 @@ export class Aluvia {
           {
             username: authResponse.data.username,
             password: authResponse.data.password,
-            sticky_enabled: false,
-            smart_routing_enabled: false,
+            stickyEnabled: false,
+            smartRoutingEnabled: false,
           },
         ];
         return new Proxy(this.credentials[0], this.config, this);
@@ -384,8 +384,8 @@ export class Aluvia {
         const apiCredential: ProxyCredential = {
           username: response.data.username,
           password: response.data.password,
-          sticky_enabled: false,
-          smart_routing_enabled: false,
+          stickyEnabled: false,
+          smartRoutingEnabled: false,
         };
 
         return new Proxy(apiCredential, this.config, this);
@@ -433,8 +433,8 @@ export class Aluvia {
       const newCredentials = response.data.map((cred: any) => ({
         username: cred.username,
         password: cred.password,
-        sticky_enabled: false,
-        smart_routing_enabled: false,
+        stickyEnabled: false,
+        smartRoutingEnabled: false,
       }));
 
       // Add to in-memory credentials
