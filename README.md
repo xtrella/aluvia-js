@@ -1,130 +1,312 @@
-# Aluvia JavaScript SDK
+# Aluvia SDK for Node.js
 
-Official JavaScript/TypeScript SDK for Aluvia proxy management.
+[![npm version](https://badge.fury.io/js/aluvia.svg)](https://www.npmjs.com/package/aluvia)
+[![TypeScript](https://img.shields.io/badge/%3C%2F%3E-TypeScript-%230074c1.svg)](http://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/node/v/aluvia.svg)](https://nodejs.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Installation
+The **official Aluvia proxy management SDK** for Node.js and modern JavaScript environments. This lightweight, TypeScript-first SDK provides a simple and powerful interface to manage your Aluvia proxies programmatically.
+
+## ✨ Features
+
+- 🌍 **Universal**: Works in Node.js (≥16) and modern browsers
+- 🏷️ **TypeScript**: Full TypeScript support with comprehensive type definitions
+- ⚡ **Lightweight**: Minimal dependencies, uses native `fetch` API
+- 🔒 **Secure**: Built-in authentication and comprehensive error handling
+- 🧪 **Well Tested**: Comprehensive test suite with high coverage
+- 📖 **Documented**: Extensive JSDoc comments and usage examples
+- 🚀 **Production Ready**: Battle-tested in production environments
+
+## 📦 Installation
 
 ```bash
 npm install aluvia
 ```
 
-## Usage
+```bash
+yarn add aluvia
+```
+
+```bash
+pnpm add aluvia
+```
+
+## 🚀 Quick Start
 
 ### Basic Setup
 
-```javascript
-import Aluvia from 'aluvia';
+```typescript
+import Aluvia from "aluvia";
 
-const aluvia = new Aluvia('your-api-token');
+// Initialize with your API token
+const aluvia = new Aluvia("your-api-token");
 ```
 
-### Get First Available Proxy
+### Get Your First Proxy
 
-```javascript
+```typescript
+try {
+  const proxy = await aluvia.first();
+
+  if (proxy) {
+    console.log("Proxy URL:", proxy.url());
+    console.log("HTTPS URL:", proxy.url("https"));
+    console.log("Proxy Info:", proxy.info);
+  } else {
+    console.log("No proxies available. Create one first!");
+  }
+} catch (error) {
+  console.error("Error fetching proxy:", error.message);
+}
+```
+
+## 📚 Usage Examples
+
+### Creating Proxies
+
+```typescript
+import Aluvia from "aluvia";
+
+const aluvia = new Aluvia("your-api-token");
+
+try {
+  // Create a single proxy
+  const [proxy] = await aluvia.create(1);
+  console.log("Created proxy:", proxy.url());
+
+  // Create multiple proxies
+  const proxies = await aluvia.create(5);
+  console.log(`Created ${proxies.length} proxies`);
+
+  proxies.forEach((proxy, index) => {
+    console.log(`Proxy ${index + 1}: ${proxy.url()}`);
+  });
+} catch (error) {
+  if (error.name === "ApiError") {
+    console.error("API Error:", error.message);
+  } else if (error.name === "ValidationError") {
+    console.error("Validation Error:", error.message);
+  } else {
+    console.error("Unexpected error:", error.message);
+  }
+}
+```
+
+### Finding and Managing Proxies
+
+```typescript
+// Find a specific proxy by username
+const proxy = await aluvia.find("username123");
+
+if (proxy) {
+  console.log("Found proxy:", proxy.info);
+
+  // Update proxy settings
+  await aluvia.update("username123", {
+    stickyEnabled: true,
+    smartRoutingEnabled: true,
+  });
+
+  // Get usage information
+  const usage = await aluvia.usage("username123");
+  console.log(`Data used: ${usage.dataUsed} GB`);
+} else {
+  console.log("Proxy not found");
+}
+```
+
+### Advanced Proxy Features
+
+```typescript
 const proxy = await aluvia.first();
+
 if (proxy) {
-  console.log('Proxy URL:', proxy.url());
-  console.log('Proxy Info:', proxy.info);
+  // Enable sticky sessions for consistent IP routing
+  await proxy.enableSticky();
+
+  // Enable smart routing for optimal performance
+  await proxy.enableSmartRouting();
+
+  // Method chaining is supported
+  await proxy.enableSticky().then((p) => p.enableSmartRouting());
+
+  // Get enhanced proxy URL with all features
+  const enhancedUrl = proxy.url();
+  console.log("Enhanced proxy URL:", enhancedUrl);
+
+  // Get detailed proxy information
+  const info = proxy.info;
+  console.log("Sticky enabled:", info.stickyEnabled);
+  console.log("Smart routing enabled:", info.smartRoutingEnabled);
 }
 ```
 
-### Find Specific Proxy
+### Usage Analytics
 
-```javascript
-const proxy = await aluvia.find('username');
-if (proxy) {
-  console.log('Found proxy:', proxy.url());
-}
-```
+```typescript
+// Get usage for current period
+const currentUsage = await aluvia.usage("username123");
+console.log("Current usage:", currentUsage);
 
-### Create New Proxies
+// Get usage for specific date range (Unix timestamps)
+const weekAgo = Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60;
+const now = Math.floor(Date.now() / 1000);
 
-```javascript
-// Create 5 new proxies
-const proxies = await aluvia.create(5);
-console.log(`Created ${proxies.length} proxies`);
-
-proxies.forEach(proxy => {
-  console.log('Proxy URL:', proxy.url());
+const weeklyUsage = await aluvia.usage("username123", {
+  usageStart: weekAgo,
+  usageEnd: now,
 });
+
+console.log(`Weekly data usage: ${weeklyUsage.dataUsed} GB`);
 ```
 
-### Enable Proxy Features
+### Error Handling
 
-```javascript
-const proxy = await aluvia.first();
-if (proxy) {
-  // Enable sticky sessions
-  proxy.enable_sticky();
-  
-  // Enable smart routing
-  proxy.enable_smart_routing();
-  
-  console.log('Enhanced proxy URL:', proxy.url());
+```typescript
+import Aluvia, {
+  ApiError,
+  ValidationError,
+  NetworkError,
+  NotFoundError,
+} from "aluvia";
+
+const aluvia = new Aluvia("your-api-token");
+
+try {
+  const proxy = await aluvia.first();
+  // ... use proxy
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error("Validation failed:", error.message);
+  } else if (error instanceof ApiError) {
+    console.error("API error:", error.message, "Status:", error.statusCode);
+  } else if (error instanceof NetworkError) {
+    console.error("Network error:", error.message);
+  } else if (error instanceof NotFoundError) {
+    console.error("Resource not found:", error.message);
+  } else {
+    console.error("Unexpected error:", error);
+  }
 }
 ```
 
-### Delete Proxy
+## 🔧 API Reference
 
-```javascript
-const proxy = await aluvia.first();
-if (proxy) {
-  const deleted = await proxy.delete();
-  console.log('Proxy deleted:', deleted);
-}
-```
-
-## API Reference
-
-### Aluvia Class
+### `Aluvia` Class
 
 #### Constructor
-- `new Aluvia(token?: string)` - Create a new Aluvia instance with optional API token
+
+```typescript
+new Aluvia(token: string)
+```
+
+Creates a new Aluvia SDK instance.
+
+**Parameters:**
+
+- `token`: Your Aluvia API authentication token
+
+**Throws:**
+
+- `ValidationError`: When token is invalid or empty
 
 #### Methods
-- `first(): Promise<Proxy | null>` - Get the first available proxy
-- `find(username: string): Promise<Proxy | null>` - Find proxy by username
-- `create(count?: number): Promise<Proxy[]>` - Create new proxies (default: 1)
-- `delete(username: string): Promise<boolean>` - Delete proxy by username
-- `all(): Proxy[]` - Get all loaded proxies
 
-### Proxy Class
+##### `first(): Promise<Proxy | null>`
+
+Retrieves the most recently created proxy.
+
+##### `find(username: string): Promise<Proxy | null>`
+
+Finds a proxy by username.
+
+##### `create(count?: number): Promise<Proxy[]>`
+
+Creates new proxy instances.
+
+##### `update(username: string, options: UpdateOptions): Promise<boolean>`
+
+Updates proxy configuration.
+
+##### `delete(username: string): Promise<boolean>`
+
+Deletes a proxy permanently.
+
+##### `usage(username: string, options?: UsageOptions): Promise<UsageInfo>`
+
+Retrieves usage information for a proxy.
+
+##### `all(): Proxy[]`
+
+Returns all currently loaded proxy instances.
+
+### `Proxy` Class
 
 #### Methods
-- `enable_sticky(): this` - Enable sticky sessions
-- `enable_smart_routing(): this` - Enable smart routing
-- `disable_sticky(): this` - Disable sticky sessions
-- `disable_smart_routing(): this` - Disable smart routing
-- `url(protocol?: 'http'): string` - Get formatted proxy URL
-- `delete(): Promise<boolean>` - Delete this proxy
+
+##### `url(protocol?: 'http' | 'https'): string`
+
+Generates a formatted proxy URL.
+
+##### `enableSticky(): Promise<this>`
+
+Enables sticky sessions for consistent IP routing.
+
+##### `enableSmartRouting(): Promise<this>`
+
+Enables smart routing for optimal performance.
+
+##### `disableSticky(): Promise<this>`
+
+Disables sticky sessions.
+
+##### `disableSmartRouting(): Promise<this>`
+
+Disables smart routing.
+
+##### `update(): Promise<boolean>`
+
+Syncs proxy configuration with the server.
+
+##### `delete(): Promise<boolean>`
+
+Deletes this proxy from your account.
+
+##### `usage(options?: UsageOptions): Promise<UsageInfo>`
+
+Gets usage information for this proxy.
 
 #### Properties
-- `info` - Get proxy information object
 
-## Advanced Configuration
+##### `info: ProxyInfo`
 
-### Custom API Origin
+Gets comprehensive proxy information.
 
-```javascript
-import { setApiOrigin } from 'aluvia';
+## ⚙️ TypeScript Configuration
 
-setApiOrigin('https://custom-api.example.com');
+For optimal TypeScript experience, ensure your `tsconfig.json` includes:
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true
+  }
+}
 ```
 
-### Token Provider
+## 🧪 Testing
 
-```javascript
-import { setAppTokenProvider } from 'aluvia';
-
-setAppTokenProvider(() => {
-  return localStorage.getItem('auth-token');
-});
+```bash
+npm test                 # Run tests
+npm run test:watch      # Run tests in watch mode
+npm run test:coverage   # Run tests with coverage report
 ```
 
-## Environment Variables
+## 📄 License
 
-- `ALUVIA_API_ORIGIN` - Override the default API origin URL
-
-## License
-
-MIT
+MIT License - see the [LICENSE](LICENSE) file for details.
