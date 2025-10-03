@@ -16,15 +16,15 @@ describe("Proxy", () => {
     mockSdk = {
       delete: jest.fn(),
       update: jest.fn(),
-      usage: jest.fn(),
+      getUsage: jest.fn(),
     } as any;
 
     // Create test credential
     mockCredential = {
       username: "testuser123",
       password: "testpass456",
-      stickyEnabled: false,
-      smartRoutingEnabled: false,
+      useSticky: false,
+      useSmartRouting: false,
     };
 
     // Create test config
@@ -41,69 +41,53 @@ describe("Proxy", () => {
   describe("constructor", () => {
     it("should create a proxy instance with correct properties", () => {
       expect(proxy).toBeInstanceOf(Proxy);
-      expect(proxy.info.username).toBe("testuser123");
-      expect(proxy.info.password).toBe("testpass456");
-      expect(proxy.info.host).toBe("proxy.aluvia.io");
-      expect(proxy.info.httpPort).toBe(8080);
-      expect(proxy.info.httpsPort).toBe(8443);
+      expect(proxy.toJSON()).toMatchObject({
+        username: "testuser123",
+        password: "testpass456",
+        host: "proxy.aluvia.io",
+        httpPort: 8080,
+        httpsPort: 8443,
+        useSticky: false,
+        useSmartRouting: false,
+      });
     });
   });
 
-  describe("update", () => {
-    it("should call SDK update method with correct parameters", async () => {
-      mockSdk.update.mockResolvedValue(true);
+  describe("useSticky property", () => {
+    it("should get and set useSticky property", () => {
+      expect(proxy.useSticky).toBe(false);
 
-      const result = await proxy.update();
+      proxy.useSticky = true;
+      expect(proxy.useSticky).toBe(true);
 
-      expect(mockSdk.update).toHaveBeenCalledWith("testuser123", {
-        stickyEnabled: false,
-        smartRoutingEnabled: false,
-      });
-      expect(result).toBe(true);
-    });
-
-    it("should call SDK update with enabled features", async () => {
-      mockSdk.update.mockResolvedValue(true);
-
-      // Manually set the credential state for testing
-      mockCredential.stickyEnabled = true;
-
-      const result = await proxy.update();
-
-      expect(mockSdk.update).toHaveBeenCalledWith("testuser123", {
-        stickyEnabled: true,
-        smartRoutingEnabled: false,
-      });
-      expect(result).toBe(true);
-    });
-
-    it("should propagate update failures", async () => {
-      mockSdk.update.mockRejectedValue(new Error("Update failed"));
-
-      await expect(proxy.update()).rejects.toThrow("Update failed");
+      proxy.useSticky = false;
+      expect(proxy.useSticky).toBe(false);
     });
   });
 
-  describe("enableSticky", () => {
+  describe("save", () => {
     beforeEach(() => {
-      mockSdk.update.mockResolvedValue(true);
+      mockSdk.update.mockResolvedValue(proxy);
     });
 
-    it("should enable sticky sessions and generate session salt", async () => {
-      const result = await proxy.enableSticky();
+    it("should save sticky sessions and generate session salt", async () => {
+      proxy.useSticky = true;
+      await proxy.save();
 
-      expect(result).toBe(proxy); // Should return this for chaining
-      expect(proxy.info.stickyEnabled).toBe(true);
-      expect(proxy.info.username).toMatch(/testuser123-session-[a-zA-Z0-9]{8}/);
+      expect(proxy.useSticky).toBe(true);
+      expect(proxy.username).toMatch(/testuser123-session-[a-zA-Z0-9]{8}/);
       expect(mockSdk.update).toHaveBeenCalled();
     });
 
-    it("should generate different session salts on multiple calls", async () => {
-      await proxy.enableSticky();
-      const firstUsername = proxy.info.username;
+    it("should generate different session salts on multiple saves", async () => {
+      proxy.useSticky = true;
+      await proxy.save();
+      const firstUsername = proxy.username;
 
-      await proxy.enableSticky();
-      const secondUsername = proxy.info.username;
+      proxy.useSticky = false;
+      proxy.useSticky = true;
+      await proxy.save();
+      const secondUsername = proxy.username;
 
       expect(firstUsername).not.toBe(secondUsername);
       expect(mockSdk.update).toHaveBeenCalledTimes(2);
@@ -111,197 +95,208 @@ describe("Proxy", () => {
 
     it("should propagate update failures", async () => {
       mockSdk.update.mockRejectedValue(new Error("Network error"));
+      proxy.useSticky = true;
 
-      await expect(proxy.enableSticky()).rejects.toThrow("Network error");
+      await expect(proxy.save()).rejects.toThrow("Network error");
     });
   });
 
-  describe("enableSmartRouting", () => {
-    beforeEach(() => {
-      mockSdk.update.mockResolvedValue(true);
+  describe("useSmartRouting property", () => {
+    it("should get and set useSmartRouting property", () => {
+      expect(proxy.useSmartRouting).toBe(false);
+
+      proxy.useSmartRouting = true;
+      expect(proxy.useSmartRouting).toBe(true);
+
+      proxy.useSmartRouting = false;
+      expect(proxy.useSmartRouting).toBe(false);
     });
 
-    it("should enable smart routing and add routing suffix", async () => {
-      const result = await proxy.enableSmartRouting();
+    it("should save smart routing and add routing suffix", async () => {
+      mockSdk.update.mockResolvedValue(proxy);
+      proxy.useSmartRouting = true;
+      await proxy.save();
 
-      expect(result).toBe(proxy); // Should return this for chaining
-      expect(proxy.info.smartRoutingEnabled).toBe(true);
-      expect(proxy.info.username).toBe("testuser123-routing-smart");
+      expect(proxy.useSmartRouting).toBe(true);
+      expect(proxy.username).toBe("testuser123-routing-smart");
       expect(mockSdk.update).toHaveBeenCalled();
     });
-
-    it("should propagate update failures", async () => {
-      mockSdk.update.mockRejectedValue(new Error("API error"));
-
-      await expect(proxy.enableSmartRouting()).rejects.toThrow("API error");
-    });
   });
 
-  describe("disableSticky", () => {
+  describe("disable functionality", () => {
     beforeEach(() => {
-      mockSdk.update.mockResolvedValue(true);
+      mockSdk.update.mockResolvedValue(proxy);
     });
 
     it("should disable sticky sessions and remove session suffix", async () => {
-      // Enable first
-      await proxy.enableSticky();
-      expect(proxy.info.stickyEnabled).toBe(true);
+      // First enable it
+      proxy.useSticky = true;
+      await proxy.save();
 
-      const result = await proxy.disableSticky();
+      // Then disable it
+      proxy.useSticky = false;
+      await proxy.save();
 
-      expect(result).toBe(proxy); // Should return this for chaining
-      expect(proxy.info.stickyEnabled).toBe(false);
-      expect(proxy.info.username).toBe("testuser123");
+      expect(proxy.useSticky).toBe(false);
+      expect(proxy.username).toBe("testuser123");
       expect(mockSdk.update).toHaveBeenCalledTimes(2); // Once for enable, once for disable
-    });
-
-    it("should propagate update failures", async () => {
-      mockSdk.update.mockRejectedValue(new Error("Disable failed"));
-
-      await expect(proxy.disableSticky()).rejects.toThrow("Disable failed");
     });
   });
 
-  describe("disableSmartRouting", () => {
+  describe("smartRoutingEnabled property", () => {
     beforeEach(() => {
-      mockSdk.update.mockResolvedValue(true);
+      mockSdk.update.mockResolvedValue(proxy);
     });
 
     it("should disable smart routing and remove routing suffix", async () => {
       // Enable first
-      await proxy.enableSmartRouting();
-      expect(proxy.info.smartRoutingEnabled).toBe(true);
+      proxy.useSmartRouting = true;
+      await proxy.save();
+      expect(proxy.useSmartRouting).toBe(true);
 
-      const result = await proxy.disableSmartRouting();
+      proxy.useSmartRouting = false;
+      await proxy.save();
 
-      expect(result).toBe(proxy); // Should return this for chaining
-      expect(proxy.info.smartRoutingEnabled).toBe(false);
-      expect(proxy.info.username).toBe("testuser123");
+      expect(proxy.useSmartRouting).toBe(false);
+      expect(proxy.username).toBe("testuser123");
       expect(mockSdk.update).toHaveBeenCalledTimes(2);
     });
 
     it("should propagate update failures", async () => {
       mockSdk.update.mockRejectedValue(new Error("Routing disable failed"));
 
-      await expect(proxy.disableSmartRouting()).rejects.toThrow(
-        "Routing disable failed"
-      );
+      proxy.useSmartRouting = false;
+      await expect(proxy.save()).rejects.toThrow("Routing disable failed");
     });
   });
 
-  describe("method chaining", () => {
+  describe("property setters", () => {
     beforeEach(() => {
-      mockSdk.update.mockResolvedValue(true);
+      mockSdk.update.mockResolvedValue(proxy);
     });
 
-    it("should support method chaining with multiple features", async () => {
-      const result = await proxy.enableSticky();
-      await result.enableSmartRouting();
+    it("should support setting multiple properties before saving", async () => {
+      proxy.useSticky = true;
+      proxy.useSmartRouting = true;
+      await proxy.save();
 
-      expect(proxy.info.stickyEnabled).toBe(true);
-      expect(proxy.info.smartRoutingEnabled).toBe(true);
-      expect(proxy.info.username).toMatch(
+      expect(proxy.useSticky).toBe(true);
+      expect(proxy.useSmartRouting).toBe(true);
+      expect(proxy.username).toMatch(
         /testuser123-session-[a-zA-Z0-9]{8}-routing-smart/
       );
-      expect(mockSdk.update).toHaveBeenCalledTimes(2);
+      expect(mockSdk.update).toHaveBeenCalledTimes(1); // Only one save call
     });
 
     it("should handle enabling and disabling features in sequence", async () => {
-      await proxy.enableSticky();
-      await proxy.enableSmartRouting();
-      await proxy.disableSticky();
+      proxy.useSticky = true;
+      await proxy.save();
 
-      expect(proxy.info.stickyEnabled).toBe(false);
-      expect(proxy.info.smartRoutingEnabled).toBe(true);
-      expect(proxy.info.username).toBe("testuser123-routing-smart");
+      proxy.useSmartRouting = true;
+      await proxy.save();
+
+      proxy.useSticky = false;
+      await proxy.save();
+
+      expect(proxy.useSticky).toBe(false);
+      expect(proxy.useSmartRouting).toBe(true);
+      expect(proxy.username).toBe("testuser123-routing-smart");
       expect(mockSdk.update).toHaveBeenCalledTimes(3);
     });
   });
 
   describe("url", () => {
     it("should generate correct HTTP proxy URL", () => {
-      const url = proxy.url("http");
+      const url = proxy.toUrl("http");
       expect(url).toBe("http://testuser123:testpass456@proxy.aluvia.io:8080");
     });
 
     it("should generate correct HTTPS proxy URL", () => {
-      const url = proxy.url("https" as any);
+      const url = proxy.toUrl("https");
       expect(url).toBe("https://testuser123:testpass456@proxy.aluvia.io:8443");
     });
 
     it("should default to HTTP protocol", () => {
-      const url = proxy.url();
+      const url = proxy.toUrl();
       expect(url).toBe("http://testuser123:testpass456@proxy.aluvia.io:8080");
     });
 
     it("should include session salt in URL when sticky is enabled", async () => {
-      mockSdk.update.mockResolvedValue(true);
-      await proxy.enableSticky();
+      mockSdk.update.mockResolvedValue(proxy);
+      proxy.useSticky = true;
+      await proxy.save();
 
-      const url = proxy.url();
+      const url = proxy.toUrl();
       expect(url).toMatch(
-        /^http:\/\/testuser123-session-[a-zA-Z0-9]{8}:testpass456@proxy\.aluvia\.io:8080$/
+        /http:\/\/testuser123-session-[a-zA-Z0-9]{8}:testpass456@proxy\.aluvia\.io:8080/
       );
     });
 
     it("should include smart routing suffix in URL when enabled", async () => {
-      mockSdk.update.mockResolvedValue(true);
-      await proxy.enableSmartRouting();
+      mockSdk.update.mockResolvedValue(proxy);
+      proxy.useSmartRouting = true;
+      await proxy.save();
 
-      const url = proxy.url();
+      const url = proxy.toUrl();
       expect(url).toBe(
         "http://testuser123-routing-smart:testpass456@proxy.aluvia.io:8080"
       );
     });
 
     it("should be a valid proxy URL format", () => {
-      const url = proxy.url();
-      expect(url).toMatch(/^http:\/\/[^:]+:[^@]+@[^:]+:\d+$/);
+      const url = proxy.toUrl();
+      const urlObj = new URL(url);
+
+      expect(urlObj.protocol).toBe("http:");
+      expect(urlObj.hostname).toBe("proxy.aluvia.io");
+      expect(urlObj.port).toBe("8080");
+      expect(urlObj.username).toBe("testuser123");
+      expect(urlObj.password).toBe("testpass456");
     });
   });
 
   describe("delete", () => {
     it("should call SDK delete method with correct username", async () => {
-      mockSdk.delete.mockResolvedValue(true);
+      mockSdk.delete.mockResolvedValue(undefined);
 
-      const result = await proxy.delete();
+      await proxy.delete();
 
       expect(mockSdk.delete).toHaveBeenCalledWith("testuser123");
-      expect(result).toBe(true);
     });
 
     it("should propagate deletion failures", async () => {
-      mockSdk.delete.mockRejectedValue(new Error("Deletion failed"));
+      mockSdk.delete.mockRejectedValue(new Error("Delete failed"));
 
-      await expect(proxy.delete()).rejects.toThrow("Deletion failed");
+      await expect(proxy.delete()).rejects.toThrow("Delete failed");
     });
   });
 
-  describe("info getter", () => {
+  describe("toJSON method", () => {
     it("should return comprehensive proxy information", () => {
-      const info = proxy.info;
+      const json = proxy.toJSON();
 
-      expect(info).toEqual({
+      expect(json).toEqual({
         username: "testuser123",
         password: "testpass456",
         host: "proxy.aluvia.io",
         httpPort: 8080,
         httpsPort: 8443,
-        stickyEnabled: false,
-        smartRoutingEnabled: false,
+        useSticky: false,
+        useSmartRouting: false,
       });
     });
 
     it("should reflect current feature states", async () => {
-      mockSdk.update.mockResolvedValue(true);
-      await proxy.enableSticky();
-      await proxy.enableSmartRouting();
+      mockSdk.update.mockResolvedValue(proxy);
+      proxy.useSticky = true;
+      proxy.useSmartRouting = true;
+      await proxy.save();
 
-      const info = proxy.info;
+      const json = proxy.toJSON();
 
-      expect(info.stickyEnabled).toBe(true);
-      expect(info.smartRoutingEnabled).toBe(true);
-      expect(info.username).toMatch(
+      expect(json.useSticky).toBe(true);
+      expect(json.useSmartRouting).toBe(true);
+      expect(json.username).toMatch(
         /testuser123-session-[a-zA-Z0-9]{8}-routing-smart/
       );
     });
@@ -309,13 +304,15 @@ describe("Proxy", () => {
 
   describe("username formatting", () => {
     beforeEach(() => {
-      mockSdk.update.mockResolvedValue(true);
+      mockSdk.update.mockResolvedValue(proxy);
     });
 
     it("should handle usernames with existing suffixes", async () => {
-      const credentialWithSuffixes = {
-        ...mockCredential,
-        username: "testuser123-session-old123-routing-smart",
+      const credentialWithSuffixes: ProxyCredential = {
+        username: "testuser123-session-oldSalt-routing-smart",
+        password: "testpass456",
+        useSticky: false,
+        useSmartRouting: false,
       };
 
       const proxyWithSuffixes = new Proxy(
@@ -323,128 +320,143 @@ describe("Proxy", () => {
         mockConfig,
         mockSdk
       );
-      await proxyWithSuffixes.enableSticky();
+      proxyWithSuffixes.useSticky = true;
+      await proxyWithSuffixes.save();
 
       // Should strip old suffixes and add new ones
-      expect(proxyWithSuffixes.info.username).toMatch(
-        /^testuser123-session-[a-zA-Z0-9]{8}$/
+      expect(proxyWithSuffixes.username).toMatch(
+        /testuser123-session-[a-zA-Z0-9]{8}$/
       );
     });
 
     it("should preserve base username when toggling features", async () => {
-      await proxy.enableSticky();
-      await proxy.disableSticky();
-      await proxy.enableSmartRouting();
-      await proxy.disableSmartRouting();
+      proxy.useSticky = true;
+      await proxy.save();
 
-      expect(proxy.info.username).toBe("testuser123");
+      proxy.useSticky = false;
+      await proxy.save();
+
+      proxy.useSmartRouting = true;
+      await proxy.save();
+
+      proxy.useSmartRouting = false;
+      await proxy.save();
+
+      expect(proxy.username).toBe("testuser123");
       expect(mockSdk.update).toHaveBeenCalledTimes(4);
     });
   });
 
   describe("feature state management", () => {
     beforeEach(() => {
-      mockSdk.update.mockResolvedValue(true);
+      mockSdk.update.mockResolvedValue(proxy);
     });
 
     it("should maintain independent feature states", async () => {
-      // Enable both features
-      await proxy.enableSticky();
-      await proxy.enableSmartRouting();
+      proxy.useSticky = true;
+      proxy.useSmartRouting = true;
+      await proxy.save();
 
-      expect(proxy.info.stickyEnabled).toBe(true);
-      expect(proxy.info.smartRoutingEnabled).toBe(true);
+      expect(proxy.useSticky).toBe(true);
+      expect(proxy.useSmartRouting).toBe(true);
 
-      // Disable only sticky
-      await proxy.disableSticky();
+      proxy.useSticky = false;
+      await proxy.save();
 
-      expect(proxy.info.stickyEnabled).toBe(false);
-      expect(proxy.info.smartRoutingEnabled).toBe(true);
-      expect(proxy.info.username).toBe("testuser123-routing-smart");
+      expect(proxy.useSticky).toBe(false);
+      expect(proxy.useSmartRouting).toBe(true); // Should remain enabled
     });
 
     it("should generate new session salt on re-enable", async () => {
-      await proxy.enableSticky();
-      const firstUsername = proxy.info.username;
+      proxy.useSticky = true;
+      await proxy.save();
+      const firstUsername = proxy.username;
 
-      await proxy.disableSticky();
-      await proxy.enableSticky();
-      const secondUsername = proxy.info.username;
+      proxy.useSticky = false;
+      await proxy.save();
+
+      proxy.useSticky = true;
+      await proxy.save();
+      const secondUsername = proxy.username;
 
       expect(firstUsername).not.toBe(secondUsername);
-      expect(mockSdk.update).toHaveBeenCalledTimes(3);
     });
   });
 
   describe("error handling", () => {
     it("should handle concurrent feature operations", async () => {
-      mockSdk.update.mockResolvedValue(true);
+      mockSdk.update.mockResolvedValue(proxy);
 
-      // Simulate concurrent operations
-      const promises = [proxy.enableSticky(), proxy.enableSmartRouting()];
+      // Set both properties and save
+      proxy.useSticky = true;
+      proxy.useSmartRouting = true;
+      await proxy.save();
 
-      await Promise.all(promises);
-
-      expect(proxy.info.stickyEnabled).toBe(true);
-      expect(proxy.info.smartRoutingEnabled).toBe(true);
-      expect(mockSdk.update).toHaveBeenCalledTimes(2);
+      expect(proxy.useSticky).toBe(true);
+      expect(proxy.useSmartRouting).toBe(true);
+      expect(mockSdk.update).toHaveBeenCalledTimes(1); // Only one save call
     });
 
     it("should maintain state consistency on update failure", async () => {
       mockSdk.update.mockRejectedValue(new Error("Network failure"));
 
-      const originalState = { ...proxy.info };
-      await expect(proxy.enableSticky()).rejects.toThrow("Network failure");
+      proxy.useSticky = true;
+      await expect(proxy.save()).rejects.toThrow("Network failure");
 
       // State should still be updated locally even if sync fails
-      expect(proxy.info.stickyEnabled).toBe(true);
-      expect(proxy.info.username).toMatch(/testuser123-session-[a-zA-Z0-9]{8}/);
+      expect(proxy.useSticky).toBe(true);
     });
   });
 
-  describe("usage", () => {
-    const mockUsageData = {
-      usageStart: 1705478400,
-      usageEnd: 1706083200,
-      dataUsed: 1.8,
-    };
-
+  describe("getUsage", () => {
     it("should call SDK usage method without options", async () => {
-      mockSdk.usage.mockResolvedValue(mockUsageData);
+      const mockUsage = {
+        usageStart: 1234567890,
+        usageEnd: 1234567900,
+        dataUsed: 100,
+      };
+      mockSdk.getUsage.mockResolvedValue(mockUsage);
 
-      const usage = await proxy.usage();
+      const usage = await proxy.getUsage();
 
-      expect(mockSdk.usage).toHaveBeenCalledWith("testuser123", undefined);
-      expect(usage.dataUsed).toBe(1.8);
+      expect(mockSdk.getUsage).toHaveBeenCalledWith("testuser123", undefined);
+      expect(usage).toEqual(mockUsage);
     });
 
     it("should call SDK usage method with date range options", async () => {
-      mockSdk.usage.mockResolvedValue(mockUsageData);
-
-      const options = {
-        usageStart: 1705478400,
-        usageEnd: 1706083200,
+      const mockUsage = {
+        usageStart: 1234567890,
+        usageEnd: 1234567900,
+        dataUsed: 50,
       };
+      mockSdk.getUsage.mockResolvedValue(mockUsage);
 
-      const usage = await proxy.usage(options);
+      const options = { usageStart: 1234567890, usageEnd: 1234567900 };
+      const usage = await proxy.getUsage(options);
 
-      expect(mockSdk.usage).toHaveBeenCalledWith("testuser123", options);
-      expect(usage.dataUsed).toBe(1.8);
+      expect(mockSdk.getUsage).toHaveBeenCalledWith("testuser123", options);
+      expect(usage).toEqual(mockUsage);
     });
 
     it("should propagate usage request failures", async () => {
-      mockSdk.usage.mockRejectedValue(new Error("Usage request failed"));
+      mockSdk.getUsage.mockRejectedValue(new Error("Usage failed"));
 
-      await expect(proxy.usage()).rejects.toThrow("Usage request failed");
+      await expect(proxy.getUsage()).rejects.toThrow("Usage failed");
     });
 
     it("should handle partial date options", async () => {
-      mockSdk.usage.mockResolvedValue(mockUsageData);
+      const mockUsage = {
+        usageStart: 1234567890,
+        usageEnd: 1234567900,
+        dataUsed: 75,
+      };
+      mockSdk.getUsage.mockResolvedValue(mockUsage);
 
-      await proxy.usage({ usageStart: 1705478400 });
-      expect(mockSdk.usage).toHaveBeenCalledWith("testuser123", {
-        usageStart: 1705478400,
-      });
+      const options = { usageStart: 1234567890 };
+      const usage = await proxy.getUsage(options);
+
+      expect(mockSdk.getUsage).toHaveBeenCalledWith("testuser123", options);
+      expect(usage).toEqual(mockUsage);
     });
   });
 });

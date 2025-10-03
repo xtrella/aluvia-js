@@ -24,11 +24,11 @@ npm install aluvia-ts-sdk
 ```
 
 ```bash
-yarn add aluvia-ts-sdk 
+yarn add aluvia-ts-sdk
 ```
 
 ```bash
-pnpm add aluvia-ts-sdk 
+pnpm add aluvia-ts-sdk
 ```
 
 ## 🚀 Quick Start
@@ -36,7 +36,7 @@ pnpm add aluvia-ts-sdk
 ### Basic Setup
 
 ```typescript
-import Aluvia from 'aluvia-ts-sdk';
+import Aluvia from "aluvia-ts-sdk";
 
 // Initialize with your API token
 const aluvia = new Aluvia("your-api-token");
@@ -49,9 +49,11 @@ try {
   const proxy = await aluvia.first();
 
   if (proxy) {
-    console.log("Proxy URL:", proxy.url());
-    console.log("HTTPS URL:", proxy.url("https"));
-    console.log("Proxy Info:", proxy.info);
+    console.log("Proxy URL:", proxy.toUrl());
+    console.log("HTTPS URL:", proxy.toUrl("https"));
+    console.log("Username:", proxy.username);
+    console.log("Password:", proxy.password);
+    console.log("Host:", proxy.host);
   } else {
     console.log("No proxies available. Create one first!");
   }
@@ -65,21 +67,21 @@ try {
 ### Creating Proxies
 
 ```typescript
-import Aluvia from 'aluvia-ts-sdk';
+import Aluvia from "aluvia-ts-sdk";
 
 const aluvia = new Aluvia("your-api-token");
 
 try {
   // Create a single proxy
   const [proxy] = await aluvia.create(1);
-  console.log("Created proxy:", proxy.url());
+  console.log("Created proxy:", proxy.toUrl());
 
   // Create multiple proxies
   const proxies = await aluvia.create(5);
   console.log(`Created ${proxies.length} proxies`);
 
   proxies.forEach((proxy, index) => {
-    console.log(`Proxy ${index + 1}: ${proxy.url()}`);
+    console.log(`Proxy ${index + 1}: ${proxy.toUrl()}`);
   });
 } catch (error) {
   if (error.name === "ApiError") {
@@ -99,16 +101,16 @@ try {
 const proxy = await aluvia.find("username123");
 
 if (proxy) {
-  console.log("Found proxy:", proxy.info);
+  console.log("Found proxy:", proxy.toJSON());
 
   // Update proxy settings
   await aluvia.update("username123", {
-    stickyEnabled: true,
-    smartRoutingEnabled: true,
+    useSticky: true,
+    useSmartRouting: true,
   });
 
   // Get usage information
-  const usage = await aluvia.usage("username123");
+  const usage = await aluvia.getUsage("username123");
   console.log(`Data used: ${usage.dataUsed} GB`);
 } else {
   console.log("Proxy not found");
@@ -121,23 +123,27 @@ if (proxy) {
 const proxy = await aluvia.first();
 
 if (proxy) {
-  // Enable sticky sessions for consistent IP routing
-  await proxy.enableSticky();
-
-  // Enable smart routing for optimal performance
-  await proxy.enableSmartRouting();
-
-  // Method chaining is supported
-  await proxy.enableSticky().then((p) => p.enableSmartRouting());
+  // Laravel-style property setting
+  proxy.useSticky = true;
+  proxy.useSmartRouting = true;
+  await proxy.save(); // Apply changes to server
 
   // Get enhanced proxy URL with all features
-  const enhancedUrl = proxy.url();
+  const enhancedUrl = proxy.toUrl();
   console.log("Enhanced proxy URL:", enhancedUrl);
 
   // Get detailed proxy information
-  const info = proxy.info;
-  console.log("Sticky enabled:", info.stickyEnabled);
-  console.log("Smart routing enabled:", info.smartRoutingEnabled);
+  console.log("Username:", proxy.username);
+  console.log("Password:", proxy.password);
+  console.log("Host:", proxy.host);
+  console.log("HTTP Port:", proxy.httpPort);
+  console.log("HTTPS Port:", proxy.httpsPort);
+  console.log("Sticky enabled:", proxy.useSticky);
+  console.log("Smart routing enabled:", proxy.useSmartRouting);
+
+  // Get usage information
+  const usage = await proxy.getUsage();
+  console.log(`Data used: ${usage.dataUsed} GB`);
 }
 ```
 
@@ -145,14 +151,14 @@ if (proxy) {
 
 ```typescript
 // Get usage for current period
-const currentUsage = await aluvia.usage("username123");
+const currentUsage = await aluvia.getUsage("username123");
 console.log("Current usage:", currentUsage);
 
 // Get usage for specific date range (Unix timestamps)
 const weekAgo = Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60;
 const now = Math.floor(Date.now() / 1000);
 
-const weeklyUsage = await aluvia.usage("username123", {
+const weeklyUsage = await aluvia.getUsage("username123", {
   usageStart: weekAgo,
   usageEnd: now,
 });
@@ -214,73 +220,182 @@ Creates a new Aluvia SDK instance.
 
 ##### `first(): Promise<Proxy | null>`
 
-Retrieves the most recently created proxy.
+Retrieves the most recently created proxy from your account.
+
+**Returns:** A promise that resolves to a Proxy instance, or null if no proxies exist
+
+**Throws:** `ApiError`, `ValidationError`, `NetworkError`
 
 ##### `find(username: string): Promise<Proxy | null>`
 
-Finds a proxy by username.
+Finds and returns a specific proxy by its username.
+
+**Parameters:**
+
+- `username`: The base username of the proxy to find
+
+**Returns:** A promise that resolves to a Proxy instance, or null if not found
+
+**Throws:** `ApiError`, `ValidationError`, `NetworkError`
 
 ##### `create(count?: number): Promise<Proxy[]>`
 
-Creates new proxy instances.
+Creates new proxy instances in your Aluvia account.
 
-##### `update(username: string, options: UpdateOptions): Promise<boolean>`
+**Parameters:**
 
-Updates proxy configuration.
+- `count`: The number of proxies to create (default: 1)
 
-##### `delete(username: string): Promise<boolean>`
+**Returns:** A promise that resolves to an array of newly created Proxy instances
 
-Deletes a proxy permanently.
+**Throws:** `ApiError`, `ValidationError`, `NetworkError`
 
-##### `usage(username: string, options?: UsageOptions): Promise<UsageInfo>`
+##### `update(username: string, options: UpdateOptions): Promise<Proxy | null>`
 
-Retrieves usage information for a proxy.
+Updates a specific proxy's configuration on the server.
 
-##### `all(): Proxy[]`
+**Parameters:**
+
+- `username`: The username of the proxy to update
+- `options`: Object with `useSticky?: boolean` and `useSmartRouting?: boolean`
+
+**Returns:** A promise that resolves to the updated Proxy instance
+
+**Throws:** `ApiError`, `ValidationError`, `NetworkError`
+
+##### `delete(username: string): Promise<void>`
+
+Permanently deletes a proxy from your account by username.
+
+**Parameters:**
+
+- `username`: The username of the proxy to delete
+
+**Throws:** `ApiError`, `ValidationError`, `NetworkError`
+
+##### `getUsage(username: string, options?: UsageOptions): Promise<UsageInfo>`
+
+Retrieves detailed usage information for a specific proxy.
+
+**Parameters:**
+
+- `username`: The username of the proxy to get usage for
+- `options`: Optional object with `usageStart?: number` and `usageEnd?: number` (Unix timestamps)
+
+**Returns:** A promise that resolves to usage information with `usageStart`, `usageEnd`, and `dataUsed` properties
+
+**Throws:** `ApiError`, `ValidationError`, `NetworkError`
+
+##### `all(): Promise<Proxy[]>`
 
 Returns all currently loaded proxy instances.
 
+**Returns:** A promise that resolves to an array of all loaded Proxy instances
+
 ### `Proxy` Class
+
+#### Properties (Getters)
+
+##### `username: string`
+
+Gets the current username with all enabled features encoded.
+
+##### `password: string`
+
+Gets the proxy password for authentication.
+
+##### `host: string`
+
+Gets the proxy server hostname.
+
+##### `httpPort: number`
+
+Gets the HTTP port number for the proxy server (typically 8080).
+
+##### `httpsPort: number`
+
+Gets the HTTPS port number for the proxy server (typically 8443).
+
+##### `useSticky: boolean` (Getter/Setter)
+
+Gets or sets whether sticky sessions are enabled for this proxy.
+
+##### `useSmartRouting: boolean` (Getter/Setter)
+
+Gets or sets whether smart routing is enabled for this proxy.
 
 #### Methods
 
-##### `url(protocol?: 'http' | 'https'): string`
+##### `toUrl(protocol?: 'http' | 'https'): string`
 
-Generates a formatted proxy URL.
+Generates a formatted proxy URL for connecting through this proxy.
 
-##### `enableSticky(): Promise<this>`
+**Parameters:**
 
-Enables sticky sessions for consistent IP routing.
+- `protocol`: The protocol to use in the URL (default: 'http')
 
-##### `enableSmartRouting(): Promise<this>`
+**Returns:** A fully formatted proxy URL ready for use
 
-Enables smart routing for optimal performance.
+##### `save(): Promise<this>`
 
-##### `disableSticky(): Promise<this>`
+Saves any changes made to the proxy configuration to the server.
 
-Disables sticky sessions.
+**Returns:** A promise that resolves to the updated Proxy instance
 
-##### `disableSmartRouting(): Promise<this>`
+**Throws:** `ApiError`, `NetworkError`
 
-Disables smart routing.
+##### `delete(): Promise<void>`
 
-##### `update(): Promise<boolean>`
+Permanently deletes this proxy from your Aluvia account.
 
-Syncs proxy configuration with the server.
+**Throws:** `ApiError`
 
-##### `delete(): Promise<boolean>`
+##### `getUsage(options?: UsageOptions): Promise<UsageInfo>`
 
-Deletes this proxy from your account.
+Retrieves detailed usage information for this proxy.
 
-##### `usage(options?: UsageOptions): Promise<UsageInfo>`
+**Parameters:**
 
-Gets usage information for this proxy.
+- `options`: Optional object with `usageStart?: number` and `usageEnd?: number` (Unix timestamps)
 
-#### Properties
+**Returns:** A promise that resolves to usage information
 
-##### `info: ProxyInfo`
+**Throws:** `ApiError`, `ValidationError`, `NetworkError`
 
-Gets comprehensive proxy information.
+##### `toJSON(): Record<string, any>`
+
+Converts the proxy instance to a JSON-serializable object.
+
+**Returns:** A plain object containing all proxy properties
+
+### Type Definitions
+
+```typescript
+interface ProxyCredential {
+  username: string;
+  password: string;
+  useSticky?: boolean;
+  useSmartRouting?: boolean;
+  sessionSalt?: string;
+}
+
+interface ProxyConfig {
+  host: string;
+  httpPort: number;
+  httpsPort: number;
+}
+
+interface UsageOptions {
+  usageStart?: number;
+  usageEnd?: number;
+}
+
+interface UsageInfo {
+  usageStart: number;
+  usageEnd: number;
+  dataUsed: number;
+}
+```
 
 ## ⚙️ TypeScript Configuration
 
