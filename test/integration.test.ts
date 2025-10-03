@@ -34,7 +34,16 @@ describe("Aluvia SDK Integration", () => {
   });
 
   it("should be able to initialize fetch polyfill", async () => {
-    const fetch = await initializeFetch();
-    expect(typeof fetch).toBe("function");
+    // This test should work whether we have native fetch or need to polyfill
+    if (typeof globalThis.fetch !== "undefined") {
+      // Node.js 18+ with native fetch - should return native fetch
+      const fetch = await initializeFetch();
+      expect(typeof fetch).toBe("function");
+      expect(fetch).toBe(globalThis.fetch);
+    } else {
+      // Node.js < 18 - should return polyfilled fetch
+      const fetch = await initializeFetch();
+      expect(typeof fetch).toBe("function");
+    }
   });
 });
