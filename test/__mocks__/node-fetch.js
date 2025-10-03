@@ -6,11 +6,11 @@ const mockFetch = function mockFetch(url, options) {
     ok: true,
     status: 200,
     json: () => Promise.resolve({}),
-    text: () => Promise.resolve(''),
-    headers: new Map()
+    text: () => Promise.resolve(""),
+    headers: new Map(),
   });
 };
 
 module.exports = {
-  default: globalThis.fetch || mockFetch
+  default: globalThis.fetch || mockFetch,
 };
