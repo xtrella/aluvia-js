@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2025-10-03
+
+### Added
+
+- Enhanced API design for improved developer experience
+- Simplified proxy management methods with intuitive naming
+- Better method chaining support for fluent API usage
+- Improved error handling with specific error types (`ApiError`, `ValidationError`, `NetworkError`, `NotFoundError`)
+- Enhanced TypeScript support with comprehensive type definitions
+- Advanced proxy features management (sticky sessions, smart routing)
+- Flexible usage analytics with date range support
+- Universal compatibility across Node.js and modern browsers
+
+### Changed
+
+- **BREAKING**: Redesigned core API methods for better usability and consistency
+- **BREAKING**: Updated proxy creation and management interfaces
+- **BREAKING**: Refined method signatures and return types for better type safety
+- **BREAKING**: Improved proxy URL generation with better protocol handling
+- Enhanced proxy feature management with dedicated enable/disable methods
+- Streamlined authentication and configuration management
+- Better error messages with more context and debugging information
+
+### Improved
+
+- More intuitive method naming conventions following industry standards
+- Enhanced proxy configuration updates with atomic operations
+- Better handling of edge cases in proxy operations
+- Improved performance in proxy URL generation and management
+- Enhanced documentation with comprehensive examples and use cases
+- Better TypeScript integration with stricter type checking
+
+### Fixed
+
+- Various bug fixes and performance improvements from v1 feedback
+- Better handling of network timeouts and retry logic
+- Improved error propagation and context preservation
+- Enhanced validation of input parameters and configurations
+
 ## [1.0.0] - 2025-10-02
 
 ### Added
