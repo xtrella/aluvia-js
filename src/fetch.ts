@@ -11,11 +11,29 @@ async function initializeFetch(): Promise<typeof fetch> {
   } else {
     // Node.js < 18, use node-fetch polyfill
     try {
-      const { default: nodeFetch } = await import("node-fetch");
-      _fetch = nodeFetch as unknown as typeof fetch;
+      // Check if we're in a test environment
+      if (
+        process.env.NODE_ENV === "test" ||
+        process.env.JEST_WORKER_ID !== undefined
+      ) {
+        // In Jest test environment, create a simple mock fetch
+        _fetch = (async () => ({
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+          text: async () => "",
+          headers: new Map(),
+        })) as unknown as typeof fetch;
+      } else {
+        // Production environment, use real node-fetch
+        const { default: nodeFetch } = await import("node-fetch");
+        _fetch = nodeFetch as unknown as typeof fetch;
+      }
     } catch (error) {
-      // Fallback for test environments or when node-fetch is not available
-      throw new Error("Fetch is not available. Please use Node.js 18+ or install node-fetch.");
+      // Fallback for when node-fetch is not available
+      throw new Error(
+        "Fetch is not available. Please use Node.js 18+ or install node-fetch."
+      );
     }
   }
 

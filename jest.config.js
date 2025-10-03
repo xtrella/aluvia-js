@@ -3,11 +3,12 @@ export default {
   preset: "ts-jest",
   testEnvironment: "node",
 
+  // Set environment variables for tests
+  setupFiles: ["<rootDir>/test/setup.ts"],
+
   // Handle .js imports for .ts files
   moduleNameMapper: {
     "^(\\.{1,2}/.*)\\.js$": "$1",
-    // Mock node-fetch for testing environments
-    "^node-fetch$": "<rootDir>/test/__mocks__/node-fetch.js"
   },
 
   // Test file patterns (excluding problematic API client tests for now)
