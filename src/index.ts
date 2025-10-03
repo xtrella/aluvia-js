@@ -305,14 +305,14 @@ export class Proxy {
   /**
    * Permanently deletes this proxy from your Aluvia account.
    *
-   * @returns A promise that resolves to true if deletion was successful
+   * @returns A promise that resolves when deletion is complete
    * @throws {Error} When the deletion fails or the proxy doesn't exist
    *
    * @example
    * ```typescript
    * const proxy = await sdk.first();
-   * const deleted = await proxy.delete();
-   * console.log('Proxy deleted:', deleted);
+   * await proxy.delete();
+   * console.log('Proxy deleted successfully');
    * ```
    */
   async delete(): Promise<void> {
@@ -401,7 +401,7 @@ export class Proxy {
  *
  * @example
  * ```typescript
- * import Aluvia from 'aluvia';
+ * import Aluvia from 'aluvia-ts-sdk';
  *
  * const sdk = new Aluvia('your-api-token');
  *
@@ -632,7 +632,7 @@ export class Aluvia {
    *
    * @param username - The username of the proxy to update
    * @param options - The settings to update
-   * @returns A promise that resolves to true if the update was successful
+   * @returns A promise that resolves to the updated Proxy instance, or null if not found
    * @throws {ApiError} When the update fails or the proxy doesn't exist
    * @throws {ValidationError} When the username or options are invalid
    * @throws {NetworkError} When network connectivity issues occur
@@ -642,10 +642,9 @@ export class Aluvia {
    * const sdk = new Aluvia('your-token');
    *
    * // Update specific proxy settings
-   * await sdk.update('user123', {
+   * const updatedProxy = await sdk.update('user123', {
    *   useSticky: true,
-   *   useSmartRouting: true,
-   *   sessionSalt: 'abc12345'
+   *   useSmartRouting: true
    * });
    * ```
    */
@@ -698,7 +697,7 @@ export class Aluvia {
    * for new connections and removed from your account.
    *
    * @param username - The username of the proxy to delete
-   * @returns A promise that resolves to true if deletion was successful
+   * @returns A promise that resolves when deletion is complete
    * @throws {ApiError} When deletion fails or the proxy doesn't exist
    * @throws {ValidationError} When the username format is invalid
    * @throws {NetworkError} When network connectivity issues occur
@@ -706,11 +705,8 @@ export class Aluvia {
    * @example
    * ```typescript
    * const sdk = new Aluvia('your-token');
-   * const success = await sdk.delete('user123');
-   *
-   * if (success) {
-   *   console.log('Proxy deleted successfully');
-   * }
+   * await sdk.delete('user123');
+   * console.log('Proxy deleted successfully');
    * ```
    */
   async delete(username: string): Promise<void> {
