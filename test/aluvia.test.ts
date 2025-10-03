@@ -82,8 +82,8 @@ describe("Aluvia SDK", () => {
       const proxy = await sdk.first();
 
       expect(proxy).toBeInstanceOf(Proxy);
-      expect(proxy?.info.username).toBe("user123");
-      expect(proxy?.info.password).toBe("pass456");
+      expect(proxy?.username).toBe("user123");
+      expect(proxy?.password).toBe("pass456");
       expect(mockApi.get).toHaveBeenCalledWith("/credentials", {
         Authorization: `Bearer ${validToken}`,
       });
@@ -109,7 +109,7 @@ describe("Aluvia SDK", () => {
       const proxy = await sdk.first();
 
       expect(proxy).toBeInstanceOf(Proxy);
-      expect(proxy?.info.stickyEnabled).toBe(false); // Should default to false
+      expect(proxy?.useSticky).toBe(false); // Should default to false
     });
 
     it("should throw error when API returns failure", async () => {
@@ -137,7 +137,7 @@ describe("Aluvia SDK", () => {
       const allProxies = await sdk.all();
 
       expect(allProxies).toHaveLength(1);
-      expect(allProxies[0].info.username).toBe("user123");
+      expect(allProxies[0].username).toBe("user123");
     });
   });
 
@@ -156,7 +156,7 @@ describe("Aluvia SDK", () => {
       const proxy = await sdk.find("targetuser");
 
       expect(proxy).toBeInstanceOf(Proxy);
-      expect(proxy?.info.username).toBe("targetuser");
+      expect(proxy?.username).toBe("targetuser");
       expect(mockApi.get).toHaveBeenCalledWith("/credentials/targetuser", {
         Authorization: `Bearer ${validToken}`,
       });
@@ -236,7 +236,7 @@ describe("Aluvia SDK", () => {
 
       expect(proxies).toHaveLength(1);
       expect(proxies[0]).toBeInstanceOf(Proxy);
-      expect(proxies[0].info.username).toBe("new1");
+      expect(proxies[0].username).toBe("new1");
       expect(mockApi.post).toHaveBeenCalledWith(
         "/credentials",
         { count: 1 },
@@ -250,8 +250,8 @@ describe("Aluvia SDK", () => {
       const proxies = await sdk.create(2);
 
       expect(proxies).toHaveLength(2);
-      expect(proxies[0].info.username).toBe("new1");
-      expect(proxies[1].info.username).toBe("new2");
+      expect(proxies[0].username).toBe("new1");
+      expect(proxies[1].username).toBe("new2");
       expect(mockApi.post).toHaveBeenCalledWith(
         "/credentials",
         { count: 2 },
@@ -320,8 +320,8 @@ describe("Aluvia SDK", () => {
       mockApi.patch.mockResolvedValue(mockUpdateResponse);
 
       const result = await sdk.update("user1", {
-        stickyEnabled: true,
-        smartRoutingEnabled: true,
+        useSticky: true,
+        useSmartRouting: true,
       });
 
       expect(result).toBeInstanceOf(Proxy);
@@ -343,7 +343,7 @@ describe("Aluvia SDK", () => {
       mockApi.patch.mockResolvedValue(mockUpdateResponse);
 
       const result = await sdk.update("user1-session-old123-routing-smart", {
-        stickyEnabled: true,
+        useSticky: true,
       });
 
       expect(result).toBeInstanceOf(Proxy);
@@ -364,24 +364,22 @@ describe("Aluvia SDK", () => {
       mockApi.patch.mockResolvedValue(mockUpdateResponse);
 
       await sdk.update("user1", {
-        stickyEnabled: true,
-        smartRoutingEnabled: false,
+        useSticky: true,
+        useSmartRouting: false,
       });
 
       const allProxies = await sdk.all();
-      const updatedProxy = allProxies.find((p) =>
-        p.info.username.includes("user1")
-      );
+      const updatedProxy = allProxies.find((p) => p.username.includes("user1"));
 
-      expect(updatedProxy?.info.stickyEnabled).toBe(true);
-      expect(updatedProxy?.info.smartRoutingEnabled).toBe(false);
+      expect(updatedProxy?.useSticky).toBe(true);
+      expect(updatedProxy?.useSmartRouting).toBe(false);
     });
 
     it("should handle partial updates", async () => {
       mockApi.patch.mockResolvedValue(mockUpdateResponse);
 
       const result = await sdk.update("user1", {
-        stickyEnabled: true,
+        useSticky: true,
       });
 
       expect(result).toBeInstanceOf(Proxy);
@@ -402,16 +400,16 @@ describe("Aluvia SDK", () => {
         message: "Proxy not found",
       });
 
-      await expect(
-        sdk.update("user1", { stickyEnabled: true })
-      ).rejects.toThrow("Proxy not found");
+      await expect(sdk.update("user1", { useSticky: true })).rejects.toThrow(
+        "Proxy not found"
+      );
     });
 
     it("should throw error when API request fails", async () => {
       mockApi.patch.mockRejectedValue(new Error("Network error"));
 
       try {
-        await sdk.update("user1", { stickyEnabled: true });
+        await sdk.update("user1", { useSticky: true });
         fail("Expected error to be thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(Error);
@@ -467,7 +465,7 @@ describe("Aluvia SDK", () => {
       const remaining = await sdk.all();
 
       expect(remaining).toHaveLength(1);
-      expect(remaining[0].info.username).toBe("user2");
+      expect(remaining[0].username).toBe("user2");
     });
 
     it("should throw error when deletion fails", async () => {
@@ -529,12 +527,12 @@ describe("Aluvia SDK", () => {
 
       const [proxy] = await sdk.all();
 
-      expect(proxy.info.host).toBe("proxy.aluvia.io");
-      expect(proxy.info.httpPort).toBe(8080);
+      expect(proxy.host).toBe("proxy.aluvia.io");
+      expect(proxy.httpPort).toBe(8080);
     });
   });
 
-  describe("usage", () => {
+  describe("getUsage", () => {
     const mockUsageResponse = {
       success: true,
       data: {
@@ -547,7 +545,7 @@ describe("Aluvia SDK", () => {
     it("should get usage information for proxy without date range", async () => {
       mockApi.get.mockResolvedValue(mockUsageResponse);
 
-      const usage = await sdk.usage("user123");
+      const usage = await sdk.getUsage("user123");
 
       expect(usage.dataUsed).toBe(2.5);
       expect(mockApi.get).toHaveBeenCalledWith("/credentials/user123", {
@@ -558,7 +556,7 @@ describe("Aluvia SDK", () => {
     it("should get usage information with date range", async () => {
       mockApi.get.mockResolvedValue(mockUsageResponse);
 
-      const usage = await sdk.usage("user123", {
+      const usage = await sdk.getUsage("user123", {
         usageStart: 1705478400,
         usageEnd: 1706083200,
       });
@@ -575,7 +573,7 @@ describe("Aluvia SDK", () => {
     it("should handle username with suffixes in usage call", async () => {
       mockApi.get.mockResolvedValue(mockUsageResponse);
 
-      await sdk.usage("user123-session-abc-routing-smart", {
+      await sdk.getUsage("user123-session-abc-routing-smart", {
         usageStart: 1705478400,
       });
 
@@ -591,7 +589,7 @@ describe("Aluvia SDK", () => {
       mockApi.get.mockResolvedValue(mockUsageResponse);
 
       // Only usageStart
-      await sdk.usage("user123", { usageStart: 1705478400 });
+      await sdk.getUsage("user123", { usageStart: 1705478400 });
       expect(mockApi.get).toHaveBeenCalledWith(
         "/credentials/user123?usage_start=1705478400",
         {
@@ -602,7 +600,7 @@ describe("Aluvia SDK", () => {
       mockApi.get.mockClear();
 
       // Only usageEnd
-      await sdk.usage("user123", { usageEnd: 1706083200 });
+      await sdk.getUsage("user123", { usageEnd: 1706083200 });
       expect(mockApi.get).toHaveBeenCalledWith(
         "/credentials/user123?usage_end=1706083200",
         {
@@ -617,14 +615,14 @@ describe("Aluvia SDK", () => {
         message: "Proxy not found",
       });
 
-      await expect(sdk.usage("user123")).rejects.toThrow("Proxy not found");
+      await expect(sdk.getUsage("user123")).rejects.toThrow("Proxy not found");
     });
 
     it("should throw error when API request fails", async () => {
       mockApi.get.mockRejectedValue(new Error("Network error"));
 
       try {
-        await sdk.usage("user123");
+        await sdk.getUsage("user123");
         fail("Expected error to be thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(Error);
@@ -633,8 +631,10 @@ describe("Aluvia SDK", () => {
     });
 
     it("should validate username parameter", async () => {
-      await expect(sdk.usage("")).rejects.toThrow("username cannot be empty");
-      await expect(sdk.usage("   ")).rejects.toThrow(
+      await expect(sdk.getUsage("")).rejects.toThrow(
+        "username cannot be empty"
+      );
+      await expect(sdk.getUsage("   ")).rejects.toThrow(
         "username cannot be empty"
       );
     });

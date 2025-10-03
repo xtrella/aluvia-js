@@ -16,9 +16,9 @@ export interface ProxyCredential {
   /** The password for proxy authentication */
   password: string;
   /** Whether sticky sessions are enabled for this proxy */
-  stickyEnabled?: boolean;
+  useSticky?: boolean;
   /** Whether smart routing is enabled for this proxy */
-  smartRoutingEnabled?: boolean;
+  useSmartRouting?: boolean;
   /** The session salt used for sticky sessions */
   sessionSalt?: string;
 }
@@ -83,12 +83,14 @@ type SimpleApiResponse = Omit<ApiResponse, "data">;
  * const sdk = new Aluvia('your-api-token');
  * const proxy = await sdk.first();
  *
- * // Enable sticky sessions
- * proxy.enableSticky();
+ * // Laravel-style property setting
+ * proxy.useSticky = true;
+ * proxy.useSmartRouting = true;
+ * await proxy.save(); // Apply changes to server
  *
  * // Get the proxy URLs
- * const httpUrl = proxy.url('http');   // http://username:password@proxy.aluvia.io:8080
- * const httpsUrl = proxy.url('https'); // https://username:password@proxy.aluvia.io:8443
+ * const httpUrl = proxy.toUrl('http');   // http://username:password@proxy.aluvia.io:8080
+ * const httpsUrl = proxy.toUrl('https'); // https://username:password@proxy.aluvia.io:8443
  * ```
  *
  * @public
@@ -122,116 +124,155 @@ export class Proxy {
    * @example
    * ```typescript
    * const proxy = await sdk.first();
-   * const usage = await proxy.usage();
+   * const usage = await proxy.getUsage();
    * console.log(`This proxy has used ${usage.dataUsed} GB`);
    *
    * // Get usage for last week
-   * const lastWeek = await proxy.usage({
+   * const lastWeek = await proxy.getUsage({
    *   usageStart: Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60),
    *   usageEnd: Math.floor(Date.now() / 1000)
    * });
    * ```
    */
-  async usage(options?: { usageStart?: number; usageEnd?: number }): Promise<{
+  async getUsage(options?: {
+    usageStart?: number;
+    usageEnd?: number;
+  }): Promise<{
     usageStart: number;
     usageEnd: number;
     dataUsed: number;
   }> {
-    return this.sdk.usage(this.credential.username, options);
+    return this.sdk.getUsage(this.credential.username, options);
   }
 
   /**
-   * Updates the proxy configuration on the server.
+   * Saves any changes made to the proxy configuration to the server.
    *
    * This method syncs the current proxy state (sticky sessions, smart routing)
-   * with the Aluvia API server.
+   * with the Aluvia API server. Call this after modifying any properties.
    *
-   * @returns A promise that resolves to true if the update was successful
+   * @returns A promise that resolves to the updated Proxy instance
    * @throws {ApiError} When the update fails or the proxy doesn't exist
    * @throws {NetworkError} When network connectivity issues occur
    *
    * @example
    * ```typescript
    * const proxy = await sdk.first();
-   * proxy.enableSticky();
-   * await proxy.update(); // Sync with server
+   * proxy.useSticky = true;
+   * proxy.useSmartRouting = true;
+   * await proxy.save(); // Sync with server
    * ```
    */
-  private async update(): Promise<this> {
+  async save(): Promise<this> {
+    // Generate new session salt every time sticky is enabled
+    if (this.credential.useSticky) {
+      this.credential.sessionSalt = this.generateSessionSalt();
+    }
+
+    // Clear session salt when disabling sticky sessions
+    if (!this.credential.useSticky) {
+      this.credential.sessionSalt = undefined;
+    }
+
     await this.sdk.update(this.credential.username, {
-      stickyEnabled: this.credential.stickyEnabled,
-      smartRoutingEnabled: this.credential.smartRoutingEnabled,
+      useSticky: this.credential.useSticky,
+      useSmartRouting: this.credential.useSmartRouting,
     });
 
     return this;
   }
 
   /**
-   * Enables sticky sessions for this proxy connection.
+   * Gets or sets whether sticky sessions are enabled for this proxy.
    *
    * Sticky sessions ensure that subsequent requests from the same client
    * are routed through the same exit IP address for session consistency.
    *
-   * @returns The current Proxy instance for method chaining
-   *
    * @example
    * ```typescript
    * const proxy = await sdk.first();
-   * proxy.enableSticky().url(); // Returns URL with session token
+   * proxy.useSticky = true;
+   * await proxy.save(); // Apply changes
    * ```
    */
-  async enableSticky(): Promise<this> {
-    this.credential.stickyEnabled = true;
-    this.credential.sessionSalt = this.generateSessionSalt();
+  get useSticky(): boolean {
+    return this.credential.useSticky || false;
+  }
 
-    await this.update();
-    return this;
+  set useSticky(enabled: boolean) {
+    this.credential.useSticky = enabled;
   }
 
   /**
-   * Enables smart routing for this proxy connection.
+   * Gets or sets whether smart routing is enabled for this proxy.
    *
    * Smart routing automatically selects the optimal path based on
    * network conditions and target destination for improved performance.
    *
-   * @returns The current Proxy instance for method chaining
+   * @example
+   * ```typescript
+   * const proxy = await sdk.first();
+   * proxy.useSmartRouting = true;
+   * await proxy.save(); // Apply changes
+   * ```
+   */
+  get useSmartRouting(): boolean {
+    return this.credential.useSmartRouting || false;
+  }
+
+  set useSmartRouting(enabled: boolean) {
+    this.credential.useSmartRouting = enabled;
+  }
+
+  /**
+   * Gets the current username with all enabled features encoded.
+   *
+   * @returns The formatted username including session salts and routing suffixes
    *
    * @example
    * ```typescript
    * const proxy = await sdk.first();
-   * await proxy.enableSmartRouting();
+   * console.log(proxy.username); // 'user123-session-abc123-routing-smart'
    * ```
    */
-  async enableSmartRouting(): Promise<this> {
-    this.credential.smartRoutingEnabled = true;
-
-    await this.update();
-    return this;
+  get username(): string {
+    return this.buildCredential().username;
   }
 
   /**
-   * Disables sticky sessions for this proxy connection.
+   * Gets the proxy password for authentication.
    *
-   * @returns The current Proxy instance for method chaining
+   * @returns The proxy authentication password
    */
-  async disableSticky(): Promise<this> {
-    this.credential.stickyEnabled = false;
-    this.credential.sessionSalt = undefined;
-
-    await this.update();
-    return this;
+  get password(): string {
+    return this.credential.password;
   }
 
   /**
-   * Disables smart routing for this proxy connection.
+   * Gets the proxy server hostname.
    *
-   * @returns The current Proxy instance for method chaining
+   * @returns The hostname or IP address of the proxy server
    */
-  async disableSmartRouting(): Promise<this> {
-    this.credential.smartRoutingEnabled = false;
+  get host(): string {
+    return this.config.host;
+  }
 
-    await this.update();
-    return this;
+  /**
+   * Gets the HTTP port number for the proxy server.
+   *
+   * @returns The HTTP port number (typically 8080)
+   */
+  get httpPort(): number {
+    return this.config.httpPort;
+  }
+
+  /**
+   * Gets the HTTPS port number for the proxy server.
+   *
+   * @returns The HTTPS port number (typically 8443)
+   */
+  get httpsPort(): number {
+    return this.config.httpsPort;
   }
 
   /**
@@ -246,11 +287,14 @@ export class Proxy {
    * @example
    * ```typescript
    * const proxy = await sdk.first();
-   * const httpUrl = proxy.url('http');
-   * const httpsUrl = proxy.url('https');
+   * const httpUrl = proxy.toUrl('http');
+   * const httpsUrl = proxy.toUrl('https');
+   *
+   * // Default is http
+   * const defaultUrl = proxy.toUrl();
    * ```
    */
-  url(protocol: "http" | "https" = "http"): string {
+  toUrl(protocol: "http" | "https" = "http"): string {
     const builtCredential = this.buildCredential();
     const port =
       protocol === "https" ? this.config.httpsPort : this.config.httpPort;
@@ -276,27 +320,38 @@ export class Proxy {
   }
 
   /**
-   * Retrieves comprehensive information about this proxy instance.
+   * Converts the proxy instance to a JSON-serializable object.
    *
-   * @returns An object containing all proxy configuration and feature states
+   * This method is automatically called by JSON.stringify() and provides
+   * a clean representation of the proxy for serialization, logging, and debugging.
+   *
+   * @returns A plain object containing all proxy properties
    *
    * @example
    * ```typescript
    * const proxy = await sdk.first();
-   * const info = proxy.info;
-   * console.log(info.username, info.host, info.stickyEnabled);
+   *
+   * // Automatic JSON serialization
+   * const jsonString = JSON.stringify(proxy);
+   * console.log(jsonString);
+   *
+   * // Manual conversion
+   * const obj = proxy.toJSON();
+   * console.log(obj);
+   *
+   * // Spreading into other objects
+   * const config = { ...proxy.toJSON(), timeout: 5000 };
    * ```
    */
-  get info() {
-    const builtCredential = this.buildCredential();
+  toJSON(): Record<string, any> {
     return {
-      username: builtCredential.username,
-      password: builtCredential.password,
-      host: this.config.host,
-      httpPort: this.config.httpPort,
-      httpsPort: this.config.httpsPort,
-      stickyEnabled: this.credential.stickyEnabled,
-      smartRoutingEnabled: this.credential.smartRoutingEnabled,
+      username: this.username,
+      password: this.password,
+      host: this.host,
+      httpPort: this.httpPort,
+      httpsPort: this.httpsPort,
+      useSticky: this.useSticky,
+      useSmartRouting: this.useSmartRouting,
     };
   }
 
@@ -307,12 +362,12 @@ export class Proxy {
     let username = stripUsernameSuffixes(this.credential.username);
 
     // Add sticky session suffix
-    if (this.credential.stickyEnabled && this.credential.sessionSalt) {
+    if (this.credential.useSticky && this.credential.sessionSalt) {
       username += `-session-${this.credential.sessionSalt}`;
     }
 
     // Add smart routing suffix
-    if (this.credential.smartRoutingEnabled) {
+    if (this.credential.useSmartRouting) {
       username += "-routing-smart";
     }
 
@@ -360,10 +415,10 @@ export class Proxy {
  * const foundProxy = await sdk.find('username123');
  *
  * // Update proxy settings
- * await sdk.update('username123', { stickyEnabled: true });
+ * await sdk.update('username123', { useSticky: true });
  *
  * // Get usage information
- * const usage = await sdk.usage('username123');
+ * const usage = await sdk.getUsage('username123');
  * ```
  *
  * @public
@@ -398,11 +453,11 @@ export class Aluvia {
 
   private parseOptions(options?: Record<string, any>) {
     return {
-      stickyEnabled:
+      useSticky:
         options && "use_sticky" in options
           ? options.use_sticky || false
           : false,
-      smartRoutingEnabled:
+      useSmartRouting:
         options && "use_smart_routing" in options
           ? options.use_smart_routing || false
           : false,
@@ -426,7 +481,7 @@ export class Aluvia {
    * const proxy = await sdk.first();
    *
    * if (proxy) {
-   *   console.log('Proxy URL:', proxy.url());
+   *   console.log('Proxy URL:', proxy.toUrl());
    * } else {
    *   console.log('No proxies available, create one first');
    * }
@@ -588,8 +643,8 @@ export class Aluvia {
    *
    * // Update specific proxy settings
    * await sdk.update('user123', {
-   *   stickyEnabled: true,
-   *   smartRoutingEnabled: true,
+   *   useSticky: true,
+   *   useSmartRouting: true,
    *   sessionSalt: 'abc12345'
    * });
    * ```
@@ -597,8 +652,8 @@ export class Aluvia {
   async update(
     username: string,
     options: {
-      stickyEnabled?: boolean;
-      smartRoutingEnabled?: boolean;
+      useSticky?: boolean;
+      useSmartRouting?: boolean;
     }
   ): Promise<Proxy | null> {
     const baseUsername = stripUsernameSuffixes(username);
@@ -606,8 +661,8 @@ export class Aluvia {
 
     const updateData = {
       options: {
-        use_sticky: options.stickyEnabled,
-        use_smart_routing: options.smartRoutingEnabled,
+        use_sticky: options.useSticky,
+        use_smart_routing: options.useSmartRouting,
       },
     };
 
@@ -718,17 +773,17 @@ export class Aluvia {
    * const sdk = new Aluvia('your-token');
    *
    * // Get usage for current period
-   * const usage = await sdk.usage('user123');
+   * const usage = await sdk.getUsage('user123');
    * console.log(`Data used: ${usage.dataUsed} GB`);
    *
    * // Get usage for specific date range
-   * const customUsage = await sdk.usage('user123', {
+   * const customUsage = await sdk.getUsage('user123', {
    *   usageStart: 1705478400,
    *   usageEnd: 1706083200
    * });
    * ```
    */
-  async usage(
+  async getUsage(
     username: string,
     options?: {
       usageStart?: number;
