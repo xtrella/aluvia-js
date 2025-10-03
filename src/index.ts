@@ -53,7 +53,10 @@ interface ApiResponse<T = any> {
 interface RawCredential {
   username: string;
   password: string;
-  options: Record<string, any>;
+  options: {
+    use_sticky?: boolean;
+    use_smart_routing?: boolean;
+  };
 }
 
 /**
@@ -154,11 +157,13 @@ export class Proxy {
    * await proxy.update(); // Sync with server
    * ```
    */
-  async update(): Promise<boolean> {
-    return this.sdk.update(this.credential.username, {
+  private async update(): Promise<this> {
+    await this.sdk.update(this.credential.username, {
       stickyEnabled: this.credential.stickyEnabled,
       smartRoutingEnabled: this.credential.smartRoutingEnabled,
     });
+
+    return this;
   }
 
   /**
@@ -266,7 +271,7 @@ export class Proxy {
    * console.log('Proxy deleted:', deleted);
    * ```
    */
-  async delete(): Promise<boolean> {
+  async delete(): Promise<void> {
     return this.sdk.delete(this.credential.username);
   }
 
@@ -299,7 +304,7 @@ export class Proxy {
    * Build credential with proper username formatting
    */
   private buildCredential(): ProxyCredential {
-    let username = this.stripUsernameSuffixes(this.credential.username);
+    let username = stripUsernameSuffixes(this.credential.username);
 
     // Add sticky session suffix
     if (this.credential.stickyEnabled && this.credential.sessionSalt) {
@@ -315,15 +320,6 @@ export class Proxy {
       ...this.credential,
       username,
     };
-  }
-
-  /**
-   * Strip session and routing suffixes from username
-   */
-  private stripUsernameSuffixes(username: string): string {
-    return username
-      .replace(/-session-[a-zA-Z0-9]+/, "")
-      .replace(/-routing-smart/, "");
   }
 
   /**
@@ -400,15 +396,6 @@ export class Aluvia {
     this.token = validateApiToken(token);
   }
 
-  /**
-   * Strip session and routing suffixes from username
-   */
-  private stripUsernameSuffixes(username: string): string {
-    return username
-      .replace(/-session-[a-zA-Z0-9]+/, "")
-      .replace(/-routing-smart/, "");
-  }
-
   private parseOptions(options?: Record<string, any>) {
     return {
       stickyEnabled:
@@ -446,6 +433,20 @@ export class Aluvia {
    * ```
    */
   async first(): Promise<Proxy | null> {
+    await this.initCredentials();
+
+    if (this.credentials.at(0)) {
+      return new Proxy(this.credentials[0], this.config, this);
+    } else {
+      return null;
+    }
+  }
+
+  private async initCredentials() {
+    if (this.credentials.length) {
+      return this.credentials;
+    }
+
     const headers = { Authorization: `Bearer ${this.token}` };
     const response = await api.get<ApiResponse<RawCredential[]>>(
       "/credentials",
@@ -461,12 +462,6 @@ export class Aluvia {
       password: cred.password,
       ...this.parseOptions(cred.options),
     }));
-
-    if (this.credentials.at(0)) {
-      return new Proxy(this.credentials[0], this.config, this);
-    } else {
-      return null;
-    }
   }
 
   /**
@@ -493,9 +488,9 @@ export class Aluvia {
    */
   async find(username: string): Promise<Proxy | null> {
     try {
-      const baseUsername = this.stripUsernameSuffixes(username);
+      const baseUsername = stripUsernameSuffixes(username);
       const match = this.credentials.find(
-        (cred) => this.stripUsernameSuffixes(cred.username) === baseUsername
+        (cred) => stripUsernameSuffixes(cred.username) === baseUsername
       );
 
       if (match) {
@@ -512,15 +507,14 @@ export class Aluvia {
         return null;
       }
 
-      return new Proxy(
-        {
-          username: response.data.username,
-          password: response.data.password,
-          ...this.parseOptions(response.data.options),
-        },
-        this.config,
-        this
-      );
+      const credential: ProxyCredential = {
+        username: response.data.username,
+        password: response.data.password,
+        ...this.parseOptions(response.data.options),
+      };
+
+      this.credentials.push(credential);
+      return new Proxy(credential, this.config, this);
     } catch (error) {
       if (error instanceof ApiError && error.statusCode === 404) {
         return null; // Proxy not found is not an error condition
@@ -606,8 +600,8 @@ export class Aluvia {
       stickyEnabled?: boolean;
       smartRoutingEnabled?: boolean;
     }
-  ): Promise<boolean> {
-    const baseUsername = this.stripUsernameSuffixes(username);
+  ): Promise<Proxy | null> {
+    const baseUsername = stripUsernameSuffixes(username);
     const headers = { Authorization: `Bearer ${this.token}` };
 
     const updateData = {
@@ -629,17 +623,17 @@ export class Aluvia {
     }
 
     this.credentials = this.credentials.map((cred) => {
-      const credBaseUsername = this.stripUsernameSuffixes(cred.username);
-      if (credBaseUsername === baseUsername) {
-        return {
-          ...cred,
-          ...this.parseOptions(response.data.options),
-        };
+      if (stripUsernameSuffixes(cred.username) !== baseUsername) {
+        return cred;
       }
-      return cred;
+
+      return {
+        ...cred,
+        ...this.parseOptions(response.data.options),
+      };
     });
 
-    return true;
+    return this.find(baseUsername)!;
   }
 
   /**
@@ -664,9 +658,9 @@ export class Aluvia {
    * }
    * ```
    */
-  async delete(username: string): Promise<boolean> {
+  async delete(username: string): Promise<void> {
     const validUsername = validateUsername(username);
-    const baseUsername = this.stripUsernameSuffixes(validUsername);
+    const baseUsername = stripUsernameSuffixes(validUsername);
 
     const headers = { Authorization: `Bearer ${this.token}` };
     const response = await api.delete<SimpleApiResponse>(
@@ -679,10 +673,8 @@ export class Aluvia {
     }
 
     this.credentials = this.credentials.filter((cred) => {
-      const credBaseUsername = this.stripUsernameSuffixes(cred.username);
-      return credBaseUsername !== baseUsername;
+      return stripUsernameSuffixes(cred.username) !== baseUsername;
     });
-    return true;
   }
 
   /**
@@ -703,7 +695,8 @@ export class Aluvia {
    * console.log(`Local cache contains ${allProxies.length} proxies`);
    * ```
    */
-  all(): Proxy[] {
+  async all(): Promise<Proxy[]> {
+    await this.initCredentials();
     return this.credentials.map((cred) => new Proxy(cred, this.config, this));
   }
 
@@ -747,7 +740,7 @@ export class Aluvia {
     dataUsed: number;
   }> {
     const validUsername = validateUsername(username);
-    const baseUsername = this.stripUsernameSuffixes(validUsername);
+    const baseUsername = stripUsernameSuffixes(validUsername);
     const headers = { Authorization: `Bearer ${this.token}` };
 
     const queryParams = new URLSearchParams();
@@ -777,6 +770,15 @@ export class Aluvia {
 
     throw new ApiError(response.message || "Failed to get proxy usage");
   }
+}
+
+/**
+ * Strip session and routing suffixes from username
+ */
+function stripUsernameSuffixes(username: string): string {
+  return username
+    .replace(/-session-[a-zA-Z0-9]+/, "")
+    .replace(/-routing-smart/, "");
 }
 
 // Export error types for users

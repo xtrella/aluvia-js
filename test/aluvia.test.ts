@@ -121,14 +121,20 @@ describe("Aluvia SDK", () => {
     it("should throw error when API request fails", async () => {
       mockApi.get.mockRejectedValue(new Error("Network error"));
 
-      await expect(sdk.first()).rejects.toThrow("Network error");
+      try {
+        await sdk.first();
+        fail("Expected error to be thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error);
+        expect((error as Error).message).toBe("Network error");
+      }
     });
 
     it("should cache credentials after successful call", async () => {
       mockApi.get.mockResolvedValue(mockCredentialResponse);
 
       await sdk.first();
-      const allProxies = sdk.all();
+      const allProxies = await sdk.all();
 
       expect(allProxies).toHaveLength(1);
       expect(allProxies[0].info.username).toBe("user123");
@@ -200,7 +206,13 @@ describe("Aluvia SDK", () => {
     it("should throw error when API request fails", async () => {
       mockApi.get.mockRejectedValue(new Error("Network error"));
 
-      await expect(sdk.find("targetuser")).rejects.toThrow("Network error");
+      try {
+        await sdk.find("targetuser");
+        fail("Expected error to be thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error);
+        expect((error as Error).message).toBe("Network error");
+      }
     });
   });
 
@@ -251,7 +263,7 @@ describe("Aluvia SDK", () => {
       mockApi.post.mockResolvedValue(mockCreateResponse);
 
       await sdk.create(2);
-      const allProxies = sdk.all();
+      const allProxies = await sdk.all();
 
       expect(allProxies).toHaveLength(2);
     });
@@ -268,7 +280,13 @@ describe("Aluvia SDK", () => {
     it("should throw error when API request fails", async () => {
       mockApi.post.mockRejectedValue(new Error("Server error"));
 
-      await expect(sdk.create()).rejects.toThrow("Server error");
+      try {
+        await sdk.create();
+        fail("Expected error to be thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error);
+        expect((error as Error).message).toBe("Server error");
+      }
     });
   });
 
@@ -306,7 +324,7 @@ describe("Aluvia SDK", () => {
         smartRoutingEnabled: true,
       });
 
-      expect(result).toBe(true);
+      expect(result).toBeInstanceOf(Proxy);
       expect(mockApi.patch).toHaveBeenCalledWith(
         "/credentials/user1",
         {
@@ -328,7 +346,7 @@ describe("Aluvia SDK", () => {
         stickyEnabled: true,
       });
 
-      expect(result).toBe(true);
+      expect(result).toBeInstanceOf(Proxy);
       expect(mockApi.patch).toHaveBeenCalledWith(
         "/credentials/user1",
         {
@@ -350,7 +368,7 @@ describe("Aluvia SDK", () => {
         smartRoutingEnabled: false,
       });
 
-      const allProxies = sdk.all();
+      const allProxies = await sdk.all();
       const updatedProxy = allProxies.find((p) =>
         p.info.username.includes("user1")
       );
@@ -366,7 +384,7 @@ describe("Aluvia SDK", () => {
         stickyEnabled: true,
       });
 
-      expect(result).toBe(true);
+      expect(result).toBeInstanceOf(Proxy);
       expect(mockApi.patch).toHaveBeenCalledWith(
         "/credentials/user1",
         {
@@ -392,9 +410,13 @@ describe("Aluvia SDK", () => {
     it("should throw error when API request fails", async () => {
       mockApi.patch.mockRejectedValue(new Error("Network error"));
 
-      await expect(
-        sdk.update("user1", { stickyEnabled: true })
-      ).rejects.toThrow("Network error");
+      try {
+        await sdk.update("user1", { stickyEnabled: true });
+        fail("Expected error to be thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error);
+        expect((error as Error).message).toBe("Network error");
+      }
     });
   });
 
@@ -421,7 +443,7 @@ describe("Aluvia SDK", () => {
 
       const result = await sdk.delete("user1");
 
-      expect(result).toBe(true);
+      expect(result).toBeUndefined();
       expect(mockApi.delete).toHaveBeenCalledWith("/credentials/user1", {
         Authorization: `Bearer ${validToken}`,
       });
@@ -432,7 +454,7 @@ describe("Aluvia SDK", () => {
 
       const result = await sdk.delete("user1-session-abc-routing-smart");
 
-      expect(result).toBe(true);
+      expect(result).toBeUndefined();
       expect(mockApi.delete).toHaveBeenCalledWith("/credentials/user1", {
         Authorization: `Bearer ${validToken}`,
       });
@@ -442,7 +464,7 @@ describe("Aluvia SDK", () => {
       mockApi.delete.mockResolvedValue(mockDeleteResponse);
 
       await sdk.delete("user1");
-      const remaining = sdk.all();
+      const remaining = await sdk.all();
 
       expect(remaining).toHaveLength(1);
       expect(remaining[0].info.username).toBe("user2");
@@ -460,13 +482,23 @@ describe("Aluvia SDK", () => {
     it("should throw error when API request fails", async () => {
       mockApi.delete.mockRejectedValue(new Error("Network error"));
 
-      await expect(sdk.delete("user1")).rejects.toThrow("Network error");
+      try {
+        await sdk.delete("user1");
+        fail("Expected error to be thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error);
+        expect((error as Error).message).toBe("Network error");
+      }
     });
   });
 
   describe("all", () => {
-    it("should return empty array when no proxies loaded", () => {
-      const proxies = sdk.all();
+    it("should return empty array when no proxies loaded", async () => {
+      mockApi.get.mockResolvedValue({
+        success: true,
+        data: [],
+      });
+      const proxies = await sdk.all();
       expect(proxies).toEqual([]);
     });
 
@@ -481,7 +513,7 @@ describe("Aluvia SDK", () => {
       });
       await sdk.create(2);
 
-      const allProxies = sdk.all();
+      const allProxies = await sdk.all();
 
       expect(allProxies).toHaveLength(2);
       expect(allProxies[0]).toBeInstanceOf(Proxy);
@@ -495,7 +527,7 @@ describe("Aluvia SDK", () => {
       });
       await sdk.create(1);
 
-      const [proxy] = sdk.all();
+      const [proxy] = await sdk.all();
 
       expect(proxy.info.host).toBe("proxy.aluvia.io");
       expect(proxy.info.httpPort).toBe(8080);
@@ -591,7 +623,13 @@ describe("Aluvia SDK", () => {
     it("should throw error when API request fails", async () => {
       mockApi.get.mockRejectedValue(new Error("Network error"));
 
-      await expect(sdk.usage("user123")).rejects.toThrow("Network error");
+      try {
+        await sdk.usage("user123");
+        fail("Expected error to be thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error);
+        expect((error as Error).message).toBe("Network error");
+      }
     });
 
     it("should validate username parameter", async () => {

@@ -49,44 +49,9 @@ describe("Proxy", () => {
     });
   });
 
-  describe("update", () => {
-    it("should call SDK update method with correct parameters", async () => {
-      mockSdk.update.mockResolvedValue(true);
-
-      const result = await proxy.update();
-
-      expect(mockSdk.update).toHaveBeenCalledWith("testuser123", {
-        stickyEnabled: false,
-        smartRoutingEnabled: false,
-      });
-      expect(result).toBe(true);
-    });
-
-    it("should call SDK update with enabled features", async () => {
-      mockSdk.update.mockResolvedValue(true);
-
-      // Manually set the credential state for testing
-      mockCredential.stickyEnabled = true;
-
-      const result = await proxy.update();
-
-      expect(mockSdk.update).toHaveBeenCalledWith("testuser123", {
-        stickyEnabled: true,
-        smartRoutingEnabled: false,
-      });
-      expect(result).toBe(true);
-    });
-
-    it("should propagate update failures", async () => {
-      mockSdk.update.mockRejectedValue(new Error("Update failed"));
-
-      await expect(proxy.update()).rejects.toThrow("Update failed");
-    });
-  });
-
   describe("enableSticky", () => {
     beforeEach(() => {
-      mockSdk.update.mockResolvedValue(true);
+      mockSdk.update.mockResolvedValue(proxy);
     });
 
     it("should enable sticky sessions and generate session salt", async () => {
@@ -118,7 +83,7 @@ describe("Proxy", () => {
 
   describe("enableSmartRouting", () => {
     beforeEach(() => {
-      mockSdk.update.mockResolvedValue(true);
+      mockSdk.update.mockResolvedValue(proxy);
     });
 
     it("should enable smart routing and add routing suffix", async () => {
@@ -139,7 +104,7 @@ describe("Proxy", () => {
 
   describe("disableSticky", () => {
     beforeEach(() => {
-      mockSdk.update.mockResolvedValue(true);
+      mockSdk.update.mockResolvedValue(proxy);
     });
 
     it("should disable sticky sessions and remove session suffix", async () => {
@@ -164,7 +129,7 @@ describe("Proxy", () => {
 
   describe("disableSmartRouting", () => {
     beforeEach(() => {
-      mockSdk.update.mockResolvedValue(true);
+      mockSdk.update.mockResolvedValue(proxy);
     });
 
     it("should disable smart routing and remove routing suffix", async () => {
@@ -191,7 +156,7 @@ describe("Proxy", () => {
 
   describe("method chaining", () => {
     beforeEach(() => {
-      mockSdk.update.mockResolvedValue(true);
+      mockSdk.update.mockResolvedValue(proxy);
     });
 
     it("should support method chaining with multiple features", async () => {
@@ -235,7 +200,7 @@ describe("Proxy", () => {
     });
 
     it("should include session salt in URL when sticky is enabled", async () => {
-      mockSdk.update.mockResolvedValue(true);
+      mockSdk.update.mockResolvedValue(proxy);
       await proxy.enableSticky();
 
       const url = proxy.url();
@@ -245,7 +210,7 @@ describe("Proxy", () => {
     });
 
     it("should include smart routing suffix in URL when enabled", async () => {
-      mockSdk.update.mockResolvedValue(true);
+      mockSdk.update.mockResolvedValue(proxy);
       await proxy.enableSmartRouting();
 
       const url = proxy.url();
@@ -262,12 +227,12 @@ describe("Proxy", () => {
 
   describe("delete", () => {
     it("should call SDK delete method with correct username", async () => {
-      mockSdk.delete.mockResolvedValue(true);
+      mockSdk.delete.mockResolvedValue(undefined);
 
       const result = await proxy.delete();
 
       expect(mockSdk.delete).toHaveBeenCalledWith("testuser123");
-      expect(result).toBe(true);
+      expect(result).toBe(undefined);
     });
 
     it("should propagate deletion failures", async () => {
@@ -293,7 +258,7 @@ describe("Proxy", () => {
     });
 
     it("should reflect current feature states", async () => {
-      mockSdk.update.mockResolvedValue(true);
+      mockSdk.update.mockResolvedValue(proxy);
       await proxy.enableSticky();
       await proxy.enableSmartRouting();
 
@@ -309,7 +274,7 @@ describe("Proxy", () => {
 
   describe("username formatting", () => {
     beforeEach(() => {
-      mockSdk.update.mockResolvedValue(true);
+      mockSdk.update.mockResolvedValue(proxy);
     });
 
     it("should handle usernames with existing suffixes", async () => {
@@ -344,7 +309,7 @@ describe("Proxy", () => {
 
   describe("feature state management", () => {
     beforeEach(() => {
-      mockSdk.update.mockResolvedValue(true);
+      mockSdk.update.mockResolvedValue(proxy);
     });
 
     it("should maintain independent feature states", async () => {
@@ -378,7 +343,7 @@ describe("Proxy", () => {
 
   describe("error handling", () => {
     it("should handle concurrent feature operations", async () => {
-      mockSdk.update.mockResolvedValue(true);
+      mockSdk.update.mockResolvedValue(proxy);
 
       // Simulate concurrent operations
       const promises = [proxy.enableSticky(), proxy.enableSmartRouting()];
@@ -393,7 +358,6 @@ describe("Proxy", () => {
     it("should maintain state consistency on update failure", async () => {
       mockSdk.update.mockRejectedValue(new Error("Network failure"));
 
-      const originalState = { ...proxy.info };
       await expect(proxy.enableSticky()).rejects.toThrow("Network failure");
 
       // State should still be updated locally even if sync fails
