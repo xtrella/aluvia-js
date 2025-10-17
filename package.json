@@ -1,6 +1,6 @@
 {
   "name": "aluvia-ts-sdk",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Official Aluvia proxy management SDK for Node.js and modern JavaScript environments",
   "main": "dist/index.js",
   "module": "dist/index.js",
@@ -14,9 +14,10 @@
     }
   },
   "scripts": {
-    "build": "npm run clean && tsc",
+    "build": "npm run clean && tsc && npm run postbuild",
     "build:watch": "tsc --watch",
     "dev": "npm run build:watch",
+    "postbuild": "printf \"module.exports = require('./index.js');\\n\" > dist/index.cjs",
     "prepare": "npm run build",
     "prepublishOnly": "npm run build && npm run test",
     "test": "jest",
