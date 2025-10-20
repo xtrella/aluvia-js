@@ -28,7 +28,7 @@
     "test:coverage": "jest --coverage",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc -p tsconfig.esm.json --noEmit && tsc -p tsconfig.cjs.json --noEmit",
     "validate": "npm run typecheck && npm run lint && npm run test",
     "release:check": "npm run validate && npm run build && npm pack --dry-run",
     "release:tag": "git tag v$(node -p \"require('./package.json').version\")",
