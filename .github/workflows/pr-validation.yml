@@ -5,6 +5,11 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main, develop]
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 jobs:
   validate:
     name: Validate PR
@@ -35,11 +40,11 @@ jobs:
       - name: Dry run package
         run: npm pack --dry-run
 
-      - name: Run security audit
+      - name: Run security audit (moderate)
         run: npm audit --audit-level moderate
         continue-on-error: true
 
-      - name: Check for vulnerabilities
+      - name: Check for high vulnerabilities
         run: |
           if npm audit --audit-level high; then
             echo "✅ No high-severity vulnerabilities found"
@@ -48,60 +53,58 @@ jobs:
             exit 1
           fi
 
-      - name: Comment PR Success
-        if: success()
-        uses: actions/github-script@v6
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '✅ **All checks passed!** \n\n- Type checking: ✅\n- Linting: ✅\n- Tests: ✅\n- Build: ✅\n- Security audit: ✅\n\nReady for review! 🚀'
-            })
-
-      - name: Comment PR Failure
-        if: failure()
-        uses: actions/github-script@v6
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '❌ **Some checks failed** \n\nPlease review the workflow logs and fix the issues before requesting review.'
-            })
-
-  size-check:
-    name: Bundle Size Check
-    runs-on: ubuntu-latest
-    if: github.event.pull_request.draft == false
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "18"
-          cache: "npm"
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build package
-        run: npm run build
-
-      - name: Check bundle size
+      - name: Check bundle size (ESM & CJS)
         run: |
-          BUNDLE_SIZE=$(stat -c%s "dist/index.js")
-          BUNDLE_SIZE_KB=$((BUNDLE_SIZE / 1024))
-          echo "Bundle size: ${BUNDLE_SIZE_KB}KB"
+          set -euo pipefail
 
-          if [ $BUNDLE_SIZE_KB -gt 100 ]; then
-            echo "⚠️ Bundle size is larger than 100KB (${BUNDLE_SIZE_KB}KB)"
-            echo "Consider optimizing the build"
-          else
-            echo "✅ Bundle size is acceptable (${BUNDLE_SIZE_KB}KB)"
+          ESM_FILE="dist/esm/index.js"
+          CJS_FILE="dist/cjs/index.cjs"
+
+          for FILE in "$ESM_FILE" "$CJS_FILE"; do
+            if [ ! -f "$FILE" ]; then
+              echo "❌ Missing build artifact: $FILE"
+              exit 1
+            fi
+          done
+
+          ESM_SIZE=$(stat -c%s "$ESM_FILE")
+          CJS_SIZE=$(stat -c%s "$CJS_FILE")
+          ESM_KB=$((ESM_SIZE / 1024))
+          CJS_KB=$((CJS_SIZE / 1024))
+
+          echo "ESM size: ${ESM_KB}KB  (${ESM_FILE})"
+          echo "CJS size: ${CJS_KB}KB  (${CJS_FILE})"
+
+          THRESHOLD_KB=100
+          FAIL=0
+          if [ $ESM_KB -gt $THRESHOLD_KB ]; then
+            echo "⚠️ ESM exceeds ${THRESHOLD_KB}KB (${ESM_KB}KB)"
+            FAIL=1
           fi
+          if [ $CJS_KB -gt $THRESHOLD_KB ]; then
+            echo "⚠️ CJS exceeds ${THRESHOLD_KB}KB (${CJS_KB}KB)"
+            FAIL=1
+          fi
+
+          if [ $FAIL -eq 1 ]; then
+            exit 1
+          else
+            echo "✅ Bundle sizes are acceptable"
+          fi
+
+      - name: Comment PR Result
+        if: always()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const status = "${{ job.status }}";
+            const succeeded = status === "success";
+            const message = succeeded
+              ? '✅ **All checks passed!** \n\n- Type checking: ✅\n- Linting: ✅\n- Tests: ✅\n- Build: ✅\n- Security audit: ✅\n- Bundle size: ✅\n\nReady for review! 🚀'
+              : '❌ **Some checks failed** \n\nPlease review the workflow logs and fix the issues before requesting review.';
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: message
+            });
