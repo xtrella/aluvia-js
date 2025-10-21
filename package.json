@@ -3,20 +3,20 @@
   "version": "2.1.0",
   "description": "Official Aluvia proxy management SDK for Node.js and modern JavaScript environments",
   "type": "module",
-  "main": "./dist/cjs/index.cjs",
+  "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
   "types": "./dist/types/index.d.ts",
   "exports": {
     ".": {
       "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.cjs",
+      "require": "./dist/cjs/index.js",
       "types": "./dist/types/index.d.ts"
     }
   },
   "scripts": {
     "clean": "rm -rf dist",
     "build:esm": "tsc -p tsconfig.esm.json",
-    "build:cjs": "tsc -p tsconfig.cjs.json && for f in dist/cjs/*.js; do mv \"$f\" \"${f%.js}.cjs\"; done",
+    "build:cjs": "tsc -p tsconfig.cjs.json",
     "build:types": "tsc -p tsconfig.types.json",
     "build": "npm run clean && npm run build:esm && npm run build:cjs && npm run build:types",
     "build:watch": "tsc -p tsconfig.esm.json --watch & tsc -p tsconfig.cjs.json --watch",
