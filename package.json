@@ -16,7 +16,7 @@
   "scripts": {
     "clean": "rm -rf dist",
     "build:esm": "tsc -p tsconfig.esm.json",
-    "build:cjs": "tsc -p tsconfig.cjs.json && node -e \"const fs=require('fs');const p='dist/cjs/index.js';if(fs.existsSync(p))fs.renameSync(p,'dist/cjs/index.cjs');\"",
+    "build:cjs": "tsc -p tsconfig.cjs.json && for f in dist/cjs/*.js; do mv \"$f\" \"${f%.js}.cjs\"; done",
     "build:types": "tsc -p tsconfig.types.json",
     "build": "npm run clean && npm run build:esm && npm run build:cjs && npm run build:types",
     "build:watch": "tsc -p tsconfig.esm.json --watch & tsc -p tsconfig.cjs.json --watch",
